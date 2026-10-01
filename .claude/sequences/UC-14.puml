@@ -1,0 +1,33 @@
+@startuml UC-14
+' Use case: ../use-cases/UC-14.md
+title UC-14: Product Listing
+footer Feature CAT-02 | Business rules: BR-10, BR-14
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "OData/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open product list (optional category, page)
+MVC -> API : GET /odata/products?$filter=CategoryId eq {categoryId}&$top=20&$skip={offset}&$count=true
+API -> SVC : QueryProducts()
+SVC --> API : IQueryable<ProductListDto>\n(active products only, EffectivePrice, IsOnSale) (BR-10, BR-14)
+API -> DB : Apply OData options and execute query
+DB --> API : Matching rows (+ total count)
+API --> MVC : 200 OK { value, @odata.count }
+alt no results
+  MVC --> U : Show "No products found"
+else results found
+  MVC --> U : Show product cards\n(name, thumbnail, effective price, base price if on sale, rating)
+end
+
+U -> MVC : Go to another page
+MVC -> API : GET /odata/products?...&$skip={nextOffset}
+API --> MVC : 200 OK (next page)
+MVC --> U : Show next page
+
+@enduml

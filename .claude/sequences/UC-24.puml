@@ -1,0 +1,26 @@
+@startuml UC-24
+' Use case: ../use-cases/UC-24.md
+title UC-24: Remove from Wishlist
+footer Feature WISH-02 | Business rules: BR-08, BR-18
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "WishlistController" as API <<Daisy.Api>>
+participant "WishlistService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Click "Remove" on a wishlist product
+MVC -> API : DELETE /api/wishlist/{productId}
+API -> SVC : RemoveAsync(currentUserId, productId)
+SVC -> DB : Find Wishlist (UserId = current user, ProductId) (BR-08)
+opt found
+  SVC -> DB : Delete Wishlist\nSaveChangesAsync
+end
+SVC --> API : OK
+API --> MVC : 204 No Content
+MVC --> U : Remove product from the list
+
+@enduml

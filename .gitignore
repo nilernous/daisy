@@ -1,0 +1,110 @@
+# =============================================================================
+# Daisy — .NET 8 (ASP.NET Core Web API + MVC), SQL Server, Clean Architecture
+# =============================================================================
+
+# --- .NET build output ---------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm64/
+[Ll]og/
+publish/
+artifacts/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+*.binlog
+
+# --- Tests and coverage --------------------------------------------------------
+[Tt]est[Rr]esult*/
+*.trx
+coverage/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.coveragexml
+.coverlet/
+
+# --- Visual Studio -------------------------------------------------------------
+.vs/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.rsuser
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# --- JetBrains Rider -------------------------------------------------------------
+.idea/
+*.sln.iml
+
+# --- VS Code: keep shared settings, ignore personal ones ------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+
+# --- Secrets and local configuration --------------------------------------------------
+# appsettings.json and appsettings.Development.json ARE committed (no secrets in them).
+# Secrets (Jwt:SigningKey, VietQr:WebhookApiKey, SMTP password, connection strings)
+# come from `dotnet user-secrets` or environment variables (API_DESIGN §10).
+appsettings.*.local.json
+appsettings.Local.json
+secrets.json
+*.pfx
+*.p12
+*.key
+.env
+.env.*
+!.env.example
+
+# --- Runtime data ------------------------------------------------------------------------
+# Files uploaded through IStorageService (product images, avatars)
+**/wwwroot/uploads/
+/storage/
+# Application logs
+logs/
+*.log
+
+# --- SQL Server ----------------------------------------------------------------------------
+# infra/database/*.sql is source; database files and backups are not.
+*.mdf
+*.ldf
+*.ndf
+*.bak
+
+# --- Front-end packages --------------------------------------------------------------------------
+# wwwroot/lib (bootstrap, jquery from the MVC template) is committed unless LibMan restore is set up.
+node_modules/
+
+# --- Docs --------------------------------------------------------------------------------------
+# Office lock files created while features.docx is open
+~$*
+# Images rendered from the PlantUML sources (regenerate with `plantuml -tsvg`)
+.claude/sequences/*.svg
+.claude/sequences/*.png
+
+# --- Claude Code -------------------------------------------------------------------------------
+# rules/, skills/, business-rules/, use-cases/, sequences/ are project docs and ARE committed.
+.claude/settings.local.json
+.claude/logs/
+
+# --- Python (doc tooling scripts) --------------------------------------------------------------
+__pycache__/
+*.py[cod]
+
+# --- OS ----------------------------------------------------------------------------------------
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.DS_Store

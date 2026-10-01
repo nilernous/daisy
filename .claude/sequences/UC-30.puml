@@ -1,0 +1,31 @@
+@startuml UC-30
+' Use case: ../use-cases/UC-30.md
+title UC-30: Select Items for Checkout
+footer Feature CART-05 | Business rules: BR-19, BR-23
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "CartController" as API <<Daisy.Api>>
+participant "CartService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Tick / untick one line or "Select all"
+MVC -> API : PUT /api/cart/selection { itemIds, selected }
+API -> SVC : SetSelectionAsync(cartOwner, itemIds, selected)
+SVC -> DB : Load lines WHERE Id IN itemIds AND owned by cartOwner
+alt selecting an unavailable line (BR-10)
+  SVC --> API : Conflict
+  API --> MVC : 409 Conflict
+  MVC --> U : Show "This item is unavailable"
+else ok
+  SVC -> DB : Set IsSelected on the lines\nSaveChangesAsync
+  SVC --> API : CartDto (selected total)
+  API --> MVC : 200 OK
+  MVC --> U : Show selected total
+end
+note over SVC : Only selected lines are checked out (BR-23)
+
+@enduml

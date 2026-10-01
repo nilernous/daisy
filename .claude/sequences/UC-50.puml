@@ -1,0 +1,42 @@
+@startuml UC-50
+' Use case: ../use-cases/UC-50.md
+title UC-50: Set Flash Sale
+footer Feature APRD-06 | Business rules: BR-07, BR-14
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Admin
+
+alt Set sale
+  U -> MVC : Enter sale price, start time, end time
+  MVC -> API : PUT /api/admin/products/{id}/sale { salePrice, startAt, endAt }
+  API -> SVC : SetSaleAsync(id, request)
+  SVC -> DB : Load product
+  SVC -> SVC : Check 0 <= SalePrice <= BasePrice\nand StartAt < EndAt (BR-14)
+  alt invalid sale
+    SVC --> API : BadRequest
+    API --> MVC : 400 Bad Request
+    MVC --> U : Show errors
+  else valid
+    SVC -> DB : Set SalePrice, SaleStartAt, SaleEndAt\nSaveChangesAsync
+    SVC --> API : OK
+    API --> MVC : 204 No Content
+    MVC --> U : Show product with sale (UC-22)
+  end
+else Clear sale
+  U -> MVC : Click "Remove sale"
+  MVC -> API : DELETE /api/admin/products/{id}/sale
+  API -> SVC : ClearSaleAsync(id)
+  SVC -> DB : Set SalePrice, SaleStartAt, SaleEndAt = NULL\nSaveChangesAsync
+  API --> MVC : 204 No Content
+  MVC --> U : Show product without sale
+end
+
+@enduml

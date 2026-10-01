@@ -1,0 +1,28 @@
+@startuml UC-19
+' Use case: ../use-cases/UC-19.md
+title UC-19: Featured Products
+footer Feature CAT-07 | Business rules: BR-10, BR-15
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "OData/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open home page (Featured section, BR-15)
+MVC -> API : GET /odata/products?$filter=IsFeatured eq true&$top=8
+API -> SVC : QueryProducts()
+SVC --> API : IQueryable<ProductListDto>\n(active products only, EffectivePrice, IsOnSale) (BR-10, BR-14)
+API -> DB : Apply OData options and execute query
+DB --> API : Matching rows (+ total count)
+API --> MVC : 200 OK { value, @odata.count }
+alt no results
+  MVC --> U : Hide the Featured section
+else results found
+  MVC --> U : Show product cards\n(name, thumbnail, effective price, base price if on sale, rating)
+end
+
+@enduml

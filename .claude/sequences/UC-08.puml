@@ -1,0 +1,25 @@
+@startuml UC-08
+' Use case: ../use-cases/UC-08.md
+title UC-08: View Profile
+footer Feature PROF-01 | Business rules: BR-02, BR-08
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "ProfileController" as API <<Daisy.Api>>
+participant "ProfileService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open profile page
+MVC -> API : GET /api/profile (Bearer token)
+API -> SVC : GetProfileAsync(currentUserId)
+SVC -> DB : Select FullName, Email, Phone, Gender,\nDateOfBirth, AvatarUrl of current user (BR-08)
+note right of SVC : PasswordHash and tokens are\nnever selected (BR-02)
+DB --> SVC : Profile row
+SVC --> API : ProfileDto
+API --> MVC : 200 OK
+MVC --> U : Show profile
+
+@enduml

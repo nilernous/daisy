@@ -1,0 +1,35 @@
+@startuml UC-38
+' Use case: ../use-cases/UC-38.md
+title UC-38: Order Detail
+footer Feature ORD-02 | Business rules: BR-08, BR-28, BR-32
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "OrdersController" as API <<Daisy.Api>>
+participant "OrderService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open an order
+MVC -> API : GET /api/orders/{id}
+API -> SVC : GetMyOrderAsync(currentUserId, id)
+SVC -> DB : Load order + items WHERE Id = id AND UserId = current user (BR-08)
+alt not found or owned by another user
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Order not found"
+else found
+  SVC --> API : OrderDetailDto\n(item snapshots, address snapshot, amounts, payment) (BR-28)
+  API --> MVC : 200 OK
+  MVC --> U : Show order detail
+  opt PaymentMethod = Online AND Unpaid AND not Canceled
+    MVC -> API : GET /api/orders/{id}/payment-qr
+    ref over API, SVC, DB : Generate VietQR as in UC-35 (BR-32)
+    API --> MVC : 200 OK PaymentQrDto
+    MVC --> U : Show VietQR code again
+  end
+end
+
+@enduml

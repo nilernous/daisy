@@ -1,0 +1,50 @@
+@startuml UC-02
+' Use case: ../use-cases/UC-02.md
+title UC-02: Login
+footer Feature AUTH-02 | Business rules: BR-02, BR-03, BR-04, BR-22
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest" as U
+participant "Daisy.Mvc" as MVC
+participant "AuthController" as API <<Daisy.Api>>
+participant "AuthService" as SVC <<Daisy.Application>>
+participant "IPasswordHasher" as HASH <<Daisy.Infrastructure>>
+participant "ITokenService" as TOK <<Daisy.Infrastructure>>
+participant "CartService" as CART <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Submit email + password
+MVC -> API : POST /api/auth/login\n(X-Cart-Session: guest session id)
+API -> SVC : LoginAsync(request, sessionId)
+SVC -> DB : Find user by email
+opt user found
+  SVC -> HASH : VerifyHashedPassword(PasswordHash, password)
+  HASH --> SVC : result
+end
+alt user not found or wrong password
+  SVC --> API : UnauthorizedException
+  API --> MVC : 401 Unauthorized
+  MVC --> U : Show "Invalid email or password"
+else Status = Locked (BR-03)
+  SVC --> API : ForbiddenException
+  API --> MVC : 403 Forbidden
+  MVC --> U : Show "Your account is locked"
+else credentials valid and account Active
+  SVC -> TOK : CreateAccessToken(user) (user id + role claims)
+  TOK --> SVC : accessToken
+  SVC -> TOK : CreateRefreshToken()
+  TOK --> SVC : refreshToken, expiresAt
+  SVC -> DB : Replace RefreshToken + RefreshTokenExpiresAt\nSaveChangesAsync (BR-04)
+  opt guest session id present
+    SVC -> CART : MergeGuestCartAsync(sessionId, userId)
+    ref over CART, DB : UC-31 Merge Guest Cart
+  end
+  SVC --> API : AuthResult
+  API --> MVC : 200 OK { accessToken, refreshToken }
+  MVC -> MVC : Store tokens in encrypted auth cookie
+  MVC --> U : Signed in, redirect to previous page
+end
+
+@enduml

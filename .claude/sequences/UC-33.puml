@@ -1,0 +1,45 @@
+@startuml UC-33
+' Use case: ../use-cases/UC-33.md
+title UC-33: Apply Voucher
+footer Feature CHK-02 | Business rules: BR-24, BR-25, BR-26, BR-27
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "CheckoutController" as API <<Daisy.Api>>
+participant "CheckoutService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Enter voucher code and click Apply
+MVC -> API : POST /api/checkout/voucher { code }
+API -> SVC : PreviewWithVoucherAsync(currentUserId, code)
+SVC -> DB : Load selected cart lines -> subtotal
+SVC -> DB : Find voucher by Code
+alt voucher not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Invalid voucher code"
+else found
+  SVC -> SVC : Check eligibility (BR-26):\nIsActive, StartAt <= now <= EndAt,\nsubtotal >= MinOrderAmount,\nUsageLimit IS NULL OR UsedCount < UsageLimit
+  alt not eligible
+    SVC --> API : BadRequest (reason)
+    API --> MVC : 400 Bad Request
+    MVC --> U : Show reason (inactive, not started, expired,\nbelow minimum, usage limit reached)
+  else eligible
+    SVC -> SVC : Discount (BR-27), Total (BR-24)
+    SVC --> API : CheckoutTotalsDto
+    API --> MVC : 200 OK
+    MVC --> U : Show discount and new total
+  end
+end
+opt customer removes the voucher
+  U -> MVC : Click "Remove voucher"
+  MVC -> API : GET /api/checkout
+  API --> MVC : 200 OK (totals without discount)
+  MVC --> U : Show total without discount
+end
+note over SVC : The voucher is checked again\nwhen the order is placed (BR-30)
+
+@enduml

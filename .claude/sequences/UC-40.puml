@@ -1,0 +1,51 @@
+@startuml UC-40
+' Use case: ../use-cases/UC-40.md
+title UC-40: Cancel Order (Customer)
+footer Feature ORD-04 | Business rules: BR-08, BR-35, BR-36
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "OrdersController" as API <<Daisy.Api>>
+participant "OrderService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Click "Cancel order" and enter a reason
+alt reason is empty
+  MVC --> U : Ask for a cancellation reason
+else reason given
+  MVC -> API : POST /api/orders/{id}/cancel { reason }
+  API -> SVC : CancelAsync(orderId, reason)
+  SVC -> DB : Load order + items WHERE Id = id AND UserId = current user (BR-08)
+  alt order not found
+    SVC --> API : NotFound
+    API --> MVC : 404 Not Found
+    MVC --> U : Show "Order not found"
+  else OrderStatus is not Pending or Confirmed (BR-36)
+    SVC --> API : Conflict
+    API --> MVC : 409 Conflict
+    MVC --> U : Show "This order can no longer be canceled"
+  else Pending or Confirmed
+    group transaction
+      SVC -> DB : Set OrderStatus = Canceled, CancelReason, CanceledAt
+      loop each order item
+        SVC -> DB : ProductVariants.StockQuantity += Quantity
+        SVC -> DB : Products.SoldCount -= Quantity
+      end
+      opt order used a voucher
+        SVC -> DB : Vouchers.UsedCount -= 1
+      end
+      SVC -> DB : SaveChangesAsync + COMMIT
+    end
+    opt PaymentStatus = Paid
+      note over SVC : Staff refund the customer and\nmark the payment Refunded (UC-57)
+    end
+    SVC --> API : CanceledOrderDto
+    API --> MVC : 200 OK
+    MVC --> U : Show order as Canceled
+  end
+end
+
+@enduml

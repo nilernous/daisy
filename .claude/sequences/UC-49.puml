@@ -1,0 +1,33 @@
+@startuml UC-49
+' Use case: ../use-cases/UC-49.md
+title UC-49: Set Featured
+footer Feature APRD-05 | Business rules: BR-07, BR-15
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Toggle "Featured" on a product
+MVC -> API : PATCH /api/admin/products/{id}/featured { isFeatured }
+API -> SVC : SetFeaturedAsync(id, isFeatured)
+SVC -> DB : Find product
+alt not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Not found"
+else found
+  SVC -> DB : Set IsFeatured\nSaveChangesAsync
+note right of SVC : Shown in Featured Products (UC-19, BR-15)
+  SVC --> API : OK
+  API --> MVC : 204 No Content
+  MVC --> U : Show updated state
+end
+
+@enduml

@@ -1,0 +1,37 @@
+@startuml UC-07
+' Use case: ../use-cases/UC-07.md
+title UC-07: Change Password
+footer Feature AUTH-07 | Business rules: BR-02, BR-06
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer / Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "AuthController" as API <<Daisy.Api>>
+participant "AuthService" as SVC <<Daisy.Application>>
+participant "IPasswordHasher" as HASH <<Daisy.Infrastructure>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Submit current password, new password, confirmation
+alt passwords do not match
+  MVC --> U : Show "Passwords do not match"
+else passwords match
+  MVC -> API : POST /api/auth/change-password (Bearer token)
+  API -> SVC : ChangePasswordAsync(currentUserId, request)
+  SVC -> DB : Load current user
+  SVC -> HASH : VerifyHashedPassword(PasswordHash, currentPassword) (BR-06)
+  alt wrong current password
+    SVC --> API : BadRequest
+    API --> MVC : 400 Bad Request
+    MVC --> U : Show "Current password is incorrect"
+  else correct
+    SVC -> HASH : HashPassword(newPassword) (BR-02)
+    SVC -> DB : Update PasswordHash, UpdatedAt\nSaveChangesAsync
+    SVC --> API : OK
+    API --> MVC : 204 No Content
+    MVC --> U : Show "Password changed"
+  end
+end
+
+@enduml

@@ -1,0 +1,33 @@
+@startuml UC-44
+' Use case: ../use-cases/UC-44.md
+title UC-44: Show / Hide Category
+footer Feature ACAT-02 | Business rules: BR-07, BR-10, BR-11
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/CategoriesController" as API <<Daisy.Api>>
+participant "CategoryService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Toggle category visibility
+MVC -> API : PATCH /api/admin/categories/{id}/visibility { isActive }
+API -> SVC : SetVisibilityAsync(id, isActive)
+SVC -> DB : Find category
+alt not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Not found"
+else found
+  SVC -> DB : Set IsActive\nSaveChangesAsync
+note right of SVC : Hidden categories disappear\nfrom the storefront (BR-10, BR-11)
+  SVC --> API : OK
+  API --> MVC : 204 No Content
+  MVC --> U : Show updated state
+end
+
+@enduml

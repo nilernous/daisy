@@ -1,0 +1,30 @@
+@startuml UC-53
+' Use case: ../use-cases/UC-53.md
+title UC-53: View / Filter Orders
+footer Feature AORD-01 | Business rules: BR-07
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "OData/OrdersController" as API <<Daisy.Api>>
+participant "OrderService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Open order list and choose filters\n(status, payment status, date range, order code)
+MVC -> API : GET /odata/orders?$filter=OrderStatus eq '{status}'\n and PaymentStatus eq '{paymentStatus}'\n and CreatedAt ge {from} and CreatedAt le {to}\n and contains(OrderCode,'{code}')\n&$orderby=CreatedAt desc&$top=20&$skip={offset}&$count=true
+API -> SVC : QueryOrders()
+SVC --> API : IQueryable<OrderAdminListDto>
+API -> DB : Apply OData options and execute query
+DB --> API : Matching orders (+ total count)
+API --> MVC : 200 OK { value, @odata.count }
+alt no match
+  MVC --> U : Show empty list
+else orders found
+  MVC --> U : Show paged order list
+end
+
+@enduml

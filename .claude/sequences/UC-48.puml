@@ -1,0 +1,68 @@
+@startuml UC-48
+' Use case: ../use-cases/UC-48.md
+title UC-48: Manage Images
+footer Feature APRD-04 | Business rules: BR-07, BR-16
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+participant "IStorageService" as STORE <<Daisy.Infrastructure>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+alt Upload images
+  U -> MVC : Select image files
+  MVC -> API : POST /api/admin/products/{id}/images (multipart/form-data)
+  API -> SVC : UploadImagesAsync(productId, files)
+  alt unsupported type or size
+    SVC --> API : ValidationException
+    API --> MVC : 400 Bad Request
+    MVC --> U : Show "Unsupported file"
+  else valid files
+    loop each file
+      SVC -> STORE : SaveAsync(file)
+      STORE --> SVC : imageUrl
+      SVC -> DB : Insert ProductImage (ImageUrl, SortOrder = last)
+    end
+    SVC -> DB : SaveChangesAsync
+    API --> MVC : 201 Created
+  end
+else Set thumbnail
+  U -> MVC : Choose an image as thumbnail
+  MVC -> API : PATCH /api/admin/images/{imageId}/thumbnail
+  API -> SVC : SetThumbnailAsync(imageId)
+  group transaction (BR-16)
+    SVC -> DB : Set IsThumbnail = 0 on the product's other images
+    SVC -> DB : Set IsThumbnail = 1 on this image
+    SVC -> DB : SaveChangesAsync + COMMIT
+  end
+  API --> MVC : 204 No Content
+else Reorder
+  U -> MVC : Drag images into a new order
+  MVC -> API : PUT /api/admin/products/{id}/images/order { imageIds }
+  API -> SVC : ReorderImagesAsync(productId, imageIds)
+  SVC -> DB : Update SortOrder of each image\nSaveChangesAsync
+  API --> MVC : 204 No Content
+else Link to color
+  U -> MVC : Choose a color (variant) for an image, or none
+  MVC -> API : PATCH /api/admin/images/{imageId}/variant { variantId? }
+  API -> SVC : LinkImageAsync(imageId, variantId)
+  SVC -> DB : Check the variant belongs to the same product
+  SVC -> DB : Set VariantId\nSaveChangesAsync
+  API --> MVC : 204 No Content
+else Delete image
+  U -> MVC : Delete an image
+  MVC -> API : DELETE /api/admin/images/{imageId}
+  API -> SVC : DeleteImageAsync(imageId)
+  SVC -> DB : Delete ProductImage\nSaveChangesAsync
+  SVC -> STORE : DeleteAsync(imageUrl)
+  API --> MVC : 204 No Content
+end
+MVC --> U : Show updated gallery
+
+@enduml

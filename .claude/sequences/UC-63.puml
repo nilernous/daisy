@@ -1,0 +1,30 @@
+@startuml UC-63
+' Use case: ../use-cases/UC-63.md
+title UC-63: View / Search Users
+footer Feature AUSR-01 | Business rules: BR-02, BR-07
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "OData/UsersController" as API <<Daisy.Api>>
+participant "UserService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Admin
+
+U -> MVC : Search users by name or email, filter by role / status
+MVC -> API : GET /odata/users?$filter=(contains(FullName,'{q}') or contains(Email,'{q}'))\n and Role eq '{role}' and Status eq '{status}'\n&$orderby=CreatedAt desc&$top=20&$count=true
+API -> SVC : QueryUsers()
+SVC --> API : IQueryable<UserListDto>\n(no PasswordHash or tokens) (BR-02)
+API -> DB : Apply OData options and execute query
+DB --> API : Matching users (+ total count)
+API --> MVC : 200 OK
+alt no match
+  MVC --> U : Show empty list
+else users found
+  MVC --> U : Show users (name, email, role, status, registered)
+end
+
+@enduml

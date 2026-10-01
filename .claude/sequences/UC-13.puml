@@ -1,0 +1,25 @@
+@startuml UC-13
+' Use case: ../use-cases/UC-13.md
+title UC-13: View Categories
+footer Feature CAT-01 | Business rules: BR-10, BR-13
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "CategoriesController" as API <<Daisy.Api>>
+participant "CategoryService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open category menu
+MVC -> API : GET /api/categories
+API -> SVC : GetTreeAsync()
+SVC -> DB : Select categories WHERE IsActive = 1\nORDER BY SortOrder (BR-10)
+DB --> SVC : Categories
+SVC -> SVC : Build parent/child tree (BR-13)
+SVC --> API : CategoryTreeDto[]
+API --> MVC : 200 OK
+MVC --> U : Show category tree
+
+@enduml

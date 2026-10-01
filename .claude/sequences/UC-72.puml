@@ -1,0 +1,37 @@
+@startuml UC-72
+' Use case: ../use-cases/UC-72.md
+title UC-72: Expire Unpaid VietQR Order
+footer Added (extends CHK-05) | Business rules: BR-35, BR-36, BR-41
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+participant "UnpaidOrderExpiryJob" as JOB <<Daisy.Infrastructure>>
+participant "OrderExpiryService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+loop every minute
+  JOB -> SVC : CancelExpiredOrdersAsync(now)
+  SVC -> DB : Load order ids WHERE PaymentMethod = 'Online'\nAND PaymentStatus = 'Unpaid' AND OrderStatus = 'Pending'\nAND PaymentExpiresAt <= now - grace (BR-41)
+  loop each expired order
+    group transaction (BR-36)
+      SVC -> DB : UPDATE Orders SET OrderStatus = 'Canceled',\nCancelReason = 'Payment not received in time', CanceledAt = now\nWHERE OrderId = @id AND PaymentStatus = 'Unpaid'\nAND OrderStatus = 'Pending'
+      alt 0 rows affected (paid or canceled meanwhile)
+        SVC -> DB : ROLLBACK
+      else canceled
+        loop each order item
+          SVC -> DB : ProductVariants.StockQuantity += Quantity
+          SVC -> DB : Products.SoldCount -= Quantity
+        end
+        opt order used a voucher
+          SVC -> DB : Vouchers.UsedCount -= 1
+        end
+        SVC -> DB : SaveChangesAsync + COMMIT
+      end
+    end
+  end
+  SVC --> JOB : number of canceled orders (logged)
+end
+note over JOB : An error on one order rolls back that order only;\nit is retried on the next run (UC-72 A2).\nSafe on several API instances (conditional update).
+
+@enduml

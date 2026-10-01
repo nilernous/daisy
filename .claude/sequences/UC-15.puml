@@ -1,0 +1,36 @@
+@startuml UC-15
+' Use case: ../use-cases/UC-15.md
+title UC-15: Product Detail
+footer Feature CAT-03 | Business rules: BR-10, BR-14, BR-16, BR-17
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open a product
+MVC -> API : GET /api/products/{slug}
+API -> SVC : GetDetailAsync(slug)
+SVC -> DB : Find product by slug WHERE IsActive = 1\n+ active variants + images ORDER BY SortOrder
+alt product not found or hidden (BR-10)
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Product not found" page
+else found
+  SVC -> SVC : Effective price per variant (BR-14)\nStock status per variant (BR-17)\nThumbnail + gallery (BR-16)
+  SVC --> API : ProductDetailDto\n(info, variants, images, AverageRating, ReviewCount)
+  API --> MVC : 200 OK
+  MVC --> U : Show gallery, sizes/colors, price, rating
+  U -> MVC : Select size and color
+  alt variant out of stock
+    MVC --> U : Show variant as unavailable,\ndisable "Add to cart"
+  else in stock
+    MVC --> U : Show variant price and stock,\nenable "Add to cart" (UC-26)
+  end
+end
+
+@enduml

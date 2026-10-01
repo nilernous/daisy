@@ -1,0 +1,33 @@
+@startuml UC-66
+' Use case: ../use-cases/UC-66.md
+title UC-66: Change Role
+footer Feature AUSR-04 | Business rules: BR-04, BR-07
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/UsersController" as API <<Daisy.Api>>
+participant "UserService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Admin
+
+U -> MVC : Choose a new role (Customer / Staff / Admin)
+MVC -> API : PATCH /api/admin/users/{id}/role { role }
+API -> SVC : ChangeRoleAsync(currentUserId, id, role)
+alt id = current Admin
+  SVC --> API : BadRequest
+  API --> MVC : 400 Bad Request
+  MVC --> U : Show "You cannot change your own role"
+else another user
+  SVC -> DB : Load user
+  SVC -> DB : Set Role\nSaveChangesAsync (BR-07)
+  note right of SVC : The new role applies when the user's next\naccess token is issued (BR-04)
+  SVC --> API : OK
+  API --> MVC : 204 No Content
+  MVC --> U : Show new role
+end
+
+@enduml

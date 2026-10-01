@@ -1,0 +1,27 @@
+@startuml UC-68
+' Use case: ../use-cases/UC-68.md
+title UC-68: Order Statistics
+footer Feature DASH-02 | Business rules: BR-07, BR-40
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/DashboardController" as API <<Daisy.Api>>
+participant "DashboardService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Admin
+
+U -> MVC : Choose period
+MVC -> API : GET /api/admin/dashboard/orders-by-status?from={from}&to={to}
+API -> SVC : GetOrdersByStatusAsync(from, to)
+SVC -> DB : COUNT(*) of orders WHERE CreatedAt in period\nGROUP BY OrderStatus (BR-40)
+DB --> SVC : Aggregated rows
+SVC -> SVC : Fill missing periods with zero
+SVC --> API : OrderStatusCountDto[]
+API --> MVC : 200 OK
+MVC --> U : Show chart and table
+
+@enduml

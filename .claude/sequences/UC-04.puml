@@ -1,0 +1,46 @@
+@startuml UC-04
+' Use case: ../use-cases/UC-04.md
+title UC-04: Refresh Token
+footer Feature AUTH-04 | Business rules: BR-03, BR-04
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer / Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "AuthController" as API <<Daisy.Api>>
+participant "AuthService" as SVC <<Daisy.Application>>
+participant "ITokenService" as TOK <<Daisy.Infrastructure>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open a page that needs the API
+MVC -> API : Call API with expired access token
+API --> MVC : 401 Unauthorized
+MVC -> API : POST /api/auth/refresh { refreshToken }
+API -> SVC : RefreshAsync(refreshToken)
+SVC -> DB : Find user by RefreshToken
+alt token not found or RefreshTokenExpiresAt passed
+  SVC --> API : UnauthorizedException
+  API --> MVC : 401 Unauthorized
+  MVC -> MVC : Delete auth cookie
+  MVC --> U : Redirect to login page
+else Status = Locked (BR-03)
+  SVC -> DB : Clear RefreshToken\nSaveChangesAsync
+  SVC --> API : UnauthorizedException
+  API --> MVC : 401 Unauthorized
+  MVC -> MVC : Delete auth cookie
+  MVC --> U : Redirect to login page
+else valid
+  SVC -> TOK : CreateAccessToken(user)
+  SVC -> TOK : CreateRefreshToken()
+  TOK --> SVC : new tokens
+  SVC -> DB : Replace RefreshToken + expiry\nSaveChangesAsync (BR-04)
+  SVC --> API : AuthResult
+  API --> MVC : 200 OK { accessToken, refreshToken }
+  MVC -> MVC : Update auth cookie
+  MVC -> API : Retry original request
+  API --> MVC : Response
+  MVC --> U : Show page
+end
+
+@enduml

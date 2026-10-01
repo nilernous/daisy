@@ -1,0 +1,28 @@
+@startuml UC-37
+' Use case: ../use-cases/UC-37.md
+title UC-37: Order History
+footer Feature ORD-01 | Business rules: BR-08
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "OrdersController" as API <<Daisy.Api>>
+participant "OrderService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open "My Orders"
+MVC -> API : GET /api/orders?page={page}
+API -> SVC : GetMyOrdersAsync(currentUserId, page)
+SVC -> DB : Select orders WHERE UserId = current user\nORDER BY CreatedAt DESC (paged) (BR-08)
+DB --> SVC : Orders
+SVC --> API : PagedResult<OrderSummaryDto>\n(OrderCode, date, status, payment status, total)
+API --> MVC : 200 OK
+alt no orders
+  MVC --> U : Show "You have no orders yet"
+else orders found
+  MVC --> U : Show order list
+end
+
+@enduml

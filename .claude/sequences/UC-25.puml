@@ -1,0 +1,25 @@
+@startuml UC-25
+' Use case: ../use-cases/UC-25.md
+title UC-25: View Wishlist
+footer Feature WISH-03 | Business rules: BR-08, BR-10, BR-14
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "WishlistController" as API <<Daisy.Api>>
+participant "WishlistService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open wishlist
+MVC -> API : GET /api/wishlist
+API -> SVC : GetAsync(currentUserId)
+SVC -> DB : Select Wishlists JOIN Products\nWHERE UserId = current user ORDER BY CreatedAt DESC (BR-08)
+DB --> SVC : Rows
+SVC -> SVC : Effective price (BR-14)\nIsAvailable = Product.IsActive (BR-10)
+SVC --> API : WishlistItemDto[]
+API --> MVC : 200 OK
+MVC --> U : Show saved products;\nhidden products shown as unavailable
+
+@enduml

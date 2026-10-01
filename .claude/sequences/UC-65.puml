@@ -1,0 +1,37 @@
+@startuml UC-65
+' Use case: ../use-cases/UC-65.md
+title UC-65: Lock / Unlock Account
+footer Feature AUSR-03 | Business rules: BR-03, BR-07
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/UsersController" as API <<Daisy.Api>>
+participant "UserService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Admin
+
+U -> MVC : Click Lock or Unlock on a user
+MVC -> API : PATCH /api/admin/users/{id}/status { status }
+API -> SVC : SetStatusAsync(currentUserId, id, status)
+alt id = current Admin
+  SVC --> API : BadRequest
+  API --> MVC : 400 Bad Request
+  MVC --> U : Show "You cannot lock your own account"
+else another user
+  SVC -> DB : Load user
+  alt Lock
+    SVC -> DB : Set Status = Locked\nClear RefreshToken + expiry (BR-03)
+  else Unlock
+    SVC -> DB : Set Status = Active
+  end
+  SVC -> DB : SaveChangesAsync
+  SVC --> API : OK
+  API --> MVC : 204 No Content
+  MVC --> U : Show new status
+end
+
+@enduml

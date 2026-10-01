@@ -1,0 +1,68 @@
+@startuml UC-34
+' Use case: ../use-cases/UC-34.md
+title UC-34: Place Order (COD)
+footer Feature CHK-04 | Business rules: BR-23, BR-24, BR-26, BR-28, BR-29, BR-30, BR-31, BR-35
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "CheckoutController" as API <<Daisy.Api>>
+participant "CheckoutService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Confirm order with "Cash on Delivery"
+MVC -> API : POST /api/checkout\n{ addressId, voucherCode?, paymentMethod: COD, expectedTotal }
+API -> SVC : PlaceOrderAsync(currentUserId, request)
+SVC -> DB : Load selected cart lines + variants + products
+SVC -> DB : Load address WHERE Id = addressId AND UserId = current user (BR-08)
+SVC -> SVC : Check every item is active and has enough stock (BR-23)
+alt item unavailable or not enough stock
+  SVC --> API : Conflict (items)
+  API --> MVC : 409 Conflict
+  MVC --> U : Show which items are unavailable
+else items OK
+  opt voucherCode given
+    SVC -> DB : Load voucher, check eligibility (BR-26)
+  end
+  alt voucher no longer eligible
+    SVC --> API : Conflict (voucher)
+    API --> MVC : 409 Conflict
+    MVC --> U : Ask to remove or change the voucher
+  else voucher OK or none
+    SVC -> SVC : Calculate Subtotal, Discount, ShippingFee, Total (BR-24)
+    alt Total differs from expectedTotal
+      SVC --> API : Conflict (newTotal)
+      API --> MVC : 409 Conflict
+      MVC --> U : Show new total, ask to confirm again
+    else Total unchanged
+      group transaction (BR-30)
+        SVC -> SVC : Generate OrderCode (BR-29)
+        SVC -> DB : Insert Order (Pending, COD, Unpaid,\nreceiver + address snapshot) (BR-28, BR-31)
+        SVC -> DB : Insert OrderItems (name, size, color, image,\nunit price snapshots)
+        loop each item
+          SVC -> DB : UPDATE ProductVariants SET StockQuantity -= qty\nWHERE VariantId = @id AND StockQuantity >= qty
+          SVC -> DB : UPDATE Products SET SoldCount += qty
+        end
+        opt voucher applied
+          SVC -> DB : UPDATE Vouchers SET UsedCount += 1\nWHERE UsageLimit IS NULL OR UsedCount < UsageLimit
+        end
+        SVC -> DB : Delete ordered CartItems
+        alt a conditional update affected 0 rows
+          SVC -> DB : ROLLBACK
+          SVC --> API : Conflict (stock or voucher changed)
+          API --> MVC : 409 Conflict
+          MVC --> U : Show "Stock or voucher changed, please review"
+        else all updates succeeded
+          SVC -> DB : COMMIT
+          SVC --> API : PlaceOrderResult (orderId, orderCode)
+          API --> MVC : 201 Created
+          MVC --> U : Show order confirmation with OrderCode
+        end
+      end
+    end
+  end
+end
+
+@enduml

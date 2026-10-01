@@ -1,0 +1,45 @@
+@startuml UC-58
+' Use case: ../use-cases/UC-58.md
+title UC-58: Create / Update Voucher
+footer Feature AVOU-01 | Business rules: BR-07, BR-25
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/VouchersController" as API <<Daisy.Api>>
+participant "VoucherService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Admin
+
+U -> MVC : Submit voucher form (code, name, type, value, max discount,\nmin order, usage limit, start, end)
+alt new voucher
+  MVC -> API : POST /api/admin/vouchers
+else existing voucher
+  MVC -> API : PUT /api/admin/vouchers/{id}
+end
+API -> SVC : SaveAsync(request)
+SVC -> SVC : Validate (BR-25): type Percent/Fixed, value > 0,\npercent <= 100, StartAt < EndAt, amounts >= 0
+SVC -> DB : Any other voucher with the same Code?
+alt invalid values
+  SVC --> API : ValidationException
+  API --> MVC : 400 Bad Request
+  MVC --> U : Show errors
+else duplicate code
+  SVC --> API : Conflict
+  API --> MVC : 409 Conflict
+  MVC --> U : Show "Code already exists"
+else UsageLimit < current UsedCount
+  SVC --> API : BadRequest
+  API --> MVC : 400 Bad Request
+  MVC --> U : Show "Usage limit is below times already used"
+else valid
+  SVC -> DB : Insert or update voucher\nSaveChangesAsync
+  SVC --> API : VoucherDto
+  API --> MVC : 200 OK / 201 Created
+  MVC --> U : Show voucher list
+end
+
+@enduml

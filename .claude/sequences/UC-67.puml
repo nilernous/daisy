@@ -1,0 +1,27 @@
+@startuml UC-67
+' Use case: ../use-cases/UC-67.md
+title UC-67: Revenue Statistics
+footer Feature DASH-01 | Business rules: BR-07, BR-40
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/DashboardController" as API <<Daisy.Api>>
+participant "DashboardService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Admin
+
+U -> MVC : Choose period and grouping (day / month)
+MVC -> API : GET /api/admin/dashboard/revenue?from={from}&to={to}&groupBy={day|month}
+API -> SVC : GetRevenueAsync(from, to, groupBy)
+SVC -> DB : SUM(TotalAmount) of orders WHERE OrderStatus = Completed\nAND CompletedAt in period GROUP BY day/month (BR-40)
+DB --> SVC : Aggregated rows
+SVC -> SVC : Fill missing periods with zero
+SVC --> API : RevenuePointDto[]
+API --> MVC : 200 OK
+MVC --> U : Show chart and table
+
+@enduml

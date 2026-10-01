@@ -1,0 +1,30 @@
+@startuml UC-52
+' Use case: ../use-cases/UC-52.md
+title UC-52: Low-stock Warning
+footer Feature INV-02 | Business rules: BR-07, BR-17
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/InventoryController" as API <<Daisy.Api>>
+participant "InventoryService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Open low-stock list
+MVC -> API : GET /api/admin/inventory/low-stock
+API -> SVC : GetLowStockAsync()
+SVC -> DB : Select active variants\nWHERE StockQuantity <= LowStockThreshold\nORDER BY StockQuantity (BR-17)
+DB --> SVC : Rows
+SVC --> API : LowStockItemDto[]\n(product name, SKU, size, color, stock, threshold)
+API --> MVC : 200 OK
+alt list empty
+  MVC --> U : Show "No variants are low on stock"
+else items found
+  MVC --> U : Show list with link to Update Stock (UC-51)
+end
+
+@enduml

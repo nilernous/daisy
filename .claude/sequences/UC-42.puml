@@ -1,0 +1,28 @@
+@startuml UC-42
+' Use case: ../use-cases/UC-42.md
+title UC-42: View Product Reviews
+footer Feature REV-02 | Business rules: BR-39
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "ProductsController" as API <<Daisy.Api>>
+participant "ReviewService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open reviews of a product
+MVC -> API : GET /api/products/{productId}/reviews?page={page}
+API -> SVC : GetProductReviewsAsync(productId, page)
+SVC -> DB : Select reviews WHERE ProductId = productId AND IsVisible = 1\nJOIN Users (FullName) ORDER BY CreatedAt DESC (paged) (BR-39)
+SVC -> DB : Select AverageRating, ReviewCount of product
+SVC --> API : ProductReviewsDto
+API --> MVC : 200 OK
+alt no visible reviews
+  MVC --> U : Show "No reviews yet"
+else reviews found
+  MVC --> U : Show average rating, count and review list
+end
+
+@enduml

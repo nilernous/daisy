@@ -1,0 +1,24 @@
+@startuml UC-03
+' Use case: ../use-cases/UC-03.md
+title UC-03: Logout
+footer Feature AUTH-03 | Business rules: BR-04
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer / Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "AuthController" as API <<Daisy.Api>>
+participant "AuthService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Click Logout
+MVC -> API : POST /api/auth/logout (Bearer token)
+API -> SVC : LogoutAsync(currentUserId)
+SVC -> DB : Clear RefreshToken + RefreshTokenExpiresAt\nSaveChangesAsync (BR-04)
+SVC --> API : OK
+API --> MVC : 204 No Content
+MVC -> MVC : Delete auth cookie (discard tokens)
+MVC --> U : Signed out, redirect to home page
+
+@enduml

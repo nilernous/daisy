@@ -1,0 +1,30 @@
+@startuml UC-61
+' Use case: ../use-cases/UC-61.md
+title UC-61: View All Reviews
+footer Feature AREV-01 | Business rules: BR-07
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "OData/ReviewsController" as API <<Daisy.Api>>
+participant "ReviewService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Open review list and choose filters\n(product, rating, visibility)
+MVC -> API : GET /odata/reviews?$filter=ProductId eq {productId}\n and Rating eq {rating} and IsVisible eq {visible}\n&$orderby=CreatedAt desc&$top=20&$count=true
+API -> SVC : QueryReviews()
+SVC --> API : IQueryable<ReviewAdminDto> (includes hidden reviews)
+API -> DB : Apply OData options and execute query
+DB --> API : Matching reviews (+ total count)
+API --> MVC : 200 OK
+alt no match
+  MVC --> U : Show empty list
+else reviews found
+  MVC --> U : Show reviews with Show / Hide actions (UC-62)
+end
+
+@enduml

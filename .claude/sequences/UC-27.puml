@@ -1,0 +1,30 @@
+@startuml UC-27
+' Use case: ../use-cases/UC-27.md
+title UC-27: View Cart
+footer Feature CART-02 | Business rules: BR-10, BR-19, BR-21
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "CartController" as API <<Daisy.Api>>
+participant "CartService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open cart
+MVC -> API : GET /api/cart (Bearer token or X-Cart-Session)
+API -> SVC : GetCartAsync(cartOwner)
+SVC -> DB : Select cart lines + variant + product + thumbnail
+DB --> SVC : Lines
+SVC -> SVC : For each line: current effective price (BR-21),\nline total, IsAvailable = active AND Quantity <= StockQuantity (BR-10)
+SVC -> SVC : Selected total = sum of selected, available lines
+SVC --> API : CartDto
+API --> MVC : 200 OK
+alt cart empty
+  MVC --> U : Show empty cart
+else has lines
+  MVC --> U : Show lines (unavailable ones marked)\nand selected total
+end
+
+@enduml

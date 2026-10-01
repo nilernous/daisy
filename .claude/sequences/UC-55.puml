@@ -1,0 +1,45 @@
+@startuml UC-55
+' Use case: ../use-cases/UC-55.md
+title UC-55: Update Order Status
+footer Feature AORD-03 | Business rules: BR-07, BR-35, BR-41
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/OrdersController" as API <<Daisy.Api>>
+participant "OrderService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Choose next status (Confirmed / Shipping / Completed)
+MVC -> API : PATCH /api/admin/orders/{id}/status { status }
+API -> SVC : UpdateStatusAsync(id, status)
+SVC -> DB : Load order
+SVC -> SVC : Check transition is allowed (BR-35):\nPending -> Confirmed -> Shipping -> Completed
+alt order not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Order not found"
+else invalid transition (skip, backwards, or final state)
+  SVC --> API : Conflict
+  API --> MVC : 409 Conflict
+  MVC --> U : Show "Status change not allowed"
+else Confirmed requested, PaymentMethod = Online and PaymentStatus <> Paid (BR-35)
+  SVC --> API : Conflict (ORDER_NOT_PAID)
+  API --> MVC : 409 Conflict
+  MVC --> U : Show "Wait until the VietQR payment is received"
+else allowed
+  SVC -> DB : Set OrderStatus
+  opt new status = Completed
+    SVC -> DB : Set CompletedAt = now
+  end
+  SVC -> DB : SaveChangesAsync
+  SVC --> API : OK
+  API --> MVC : 204 No Content
+  MVC --> U : Show new status
+end
+
+@enduml

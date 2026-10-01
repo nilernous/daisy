@@ -1,0 +1,41 @@
+@startuml UC-05
+' Use case: ../use-cases/UC-05.md
+title UC-05: Forgot Password
+footer Feature AUTH-05 | Business rules: BR-05
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest" as U
+participant "Daisy.Mvc" as MVC
+participant "AuthController" as API <<Daisy.Api>>
+participant "AuthService" as SVC <<Daisy.Application>>
+participant "IEmailService" as MAIL <<Daisy.Infrastructure>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Submit email on Forgot Password form
+MVC -> API : POST /api/auth/forgot-password { email }
+API -> SVC : ForgotPasswordAsync(email)
+SVC -> DB : Find user by email
+alt email not registered
+  SVC --> API : OK (no email sent)
+  API --> MVC : 200 OK
+  MVC --> U : Show "If the email exists, a reset link has been sent"
+else user found
+  SVC -> SVC : Generate random token + expiry (BR-05)
+  SVC -> DB : Save ResetPasswordToken (hashed) + ResetPasswordExpiresAt\n(replaces previous token)
+  SVC -> MAIL : SendPasswordResetAsync(email, resetLink)
+  alt email sent
+    MAIL --> SVC : OK
+    SVC --> API : OK
+    API --> MVC : 200 OK
+    MVC --> U : Show "If the email exists, a reset link has been sent"
+  else sending failed
+    MAIL --> SVC : Error (logged)
+    SVC --> API : ServiceUnavailableException
+    API --> MVC : 503 Service Unavailable
+    MVC --> U : Show "Please try again later"
+  end
+end
+
+@enduml

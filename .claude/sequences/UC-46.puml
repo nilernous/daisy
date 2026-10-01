@@ -1,0 +1,33 @@
+@startuml UC-46
+' Use case: ../use-cases/UC-46.md
+title UC-46: Show / Hide Product
+footer Feature APRD-02 | Business rules: BR-07, BR-10, BR-11
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Toggle product visibility
+MVC -> API : PATCH /api/admin/products/{id}/visibility { isActive }
+API -> SVC : SetVisibilityAsync(id, isActive)
+SVC -> DB : Find product
+alt not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Not found"
+else found
+  SVC -> DB : Set IsActive\nSaveChangesAsync
+note right of SVC : Hidden: removed from storefront, cart lines become\nunavailable; orders unaffected (BR-10, BR-11)
+  SVC --> API : OK
+  API --> MVC : 204 No Content
+  MVC --> U : Show updated state
+end
+
+@enduml

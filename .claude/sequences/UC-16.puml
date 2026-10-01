@@ -1,0 +1,28 @@
+@startuml UC-16
+' Use case: ../use-cases/UC-16.md
+title UC-16: Search Products
+footer Feature CAT-04 | Business rules: BR-10
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "OData/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Enter search keyword
+MVC -> API : GET /odata/products?$filter=contains(Name,'{keyword}') or contains(Brand,'{keyword}')&$top=20&$count=true
+API -> SVC : QueryProducts()
+SVC --> API : IQueryable<ProductListDto>\n(active products only, EffectivePrice, IsOnSale) (BR-10, BR-14)
+API -> DB : Apply OData options and execute query
+DB --> API : Matching rows (+ total count)
+API --> MVC : 200 OK { value, @odata.count }
+alt no results
+  MVC --> U : Show "No products match your search"
+else results found
+  MVC --> U : Show product cards\n(name, thumbnail, effective price, base price if on sale, rating)
+end
+
+@enduml

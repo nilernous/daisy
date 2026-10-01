@@ -1,0 +1,38 @@
+@startuml UC-23
+' Use case: ../use-cases/UC-23.md
+title UC-23: Add to Wishlist
+footer Feature WISH-01 | Business rules: BR-08, BR-10, BR-18
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "WishlistController" as API <<Daisy.Api>>
+participant "WishlistService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Click "Add to wishlist" on a product
+alt not signed in
+  MVC --> U : Redirect to login page
+else signed in
+  MVC -> API : POST /api/wishlist/{productId} (Bearer token)
+  API -> SVC : AddAsync(currentUserId, productId)
+  SVC -> DB : Find product WHERE IsActive = 1 (BR-10)
+  alt product not found or hidden
+    SVC --> API : NotFound
+    API --> MVC : 404 Not Found
+    MVC --> U : Show "Product not available"
+  else product active
+    SVC -> DB : Wishlists.AnyAsync(UserId, ProductId)
+    opt not in wishlist yet
+      SVC -> DB : Insert Wishlist (UserId, ProductId)\nSaveChangesAsync
+    end
+    note right of SVC : Already in wishlist = no change,\nstill a success (BR-18)
+    SVC --> API : OK
+    API --> MVC : 204 No Content
+    MVC --> U : Show product as saved
+  end
+end
+
+@enduml

@@ -1,0 +1,35 @@
+@startuml UC-12
+' Use case: ../use-cases/UC-12.md
+title UC-12: Set Default Address
+footer Feature PROF-05 | Business rules: BR-08, BR-09
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "ProfileController" as API <<Daisy.Api>>
+participant "ProfileService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Click "Set as default" on an address
+MVC -> API : PUT /api/profile/addresses/{id}/default
+API -> SVC : SetDefaultAddressAsync(currentUserId, id)
+SVC -> DB : Find address WHERE Id = id AND UserId = current user (BR-08)
+alt not found or owned by another user
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Address not found"
+else found
+  group transaction (BR-09)
+    SVC -> DB : Set IsDefault = 0 on current default\nSaveChangesAsync
+    SVC -> DB : Set IsDefault = 1 on selected address\nSaveChangesAsync
+    SVC -> DB : COMMIT
+  end
+  note right of SVC : Two separate saves so the filtered unique\nindex UX_UserAddresses_Default is never violated
+  SVC --> API : OK
+  API --> MVC : 204 No Content
+  MVC --> U : Show new default first
+end
+
+@enduml

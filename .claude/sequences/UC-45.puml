@@ -1,0 +1,42 @@
+@startuml UC-45
+' Use case: ../use-cases/UC-45.md
+title UC-45: Create / Update Product
+footer Feature APRD-01 | Business rules: BR-07, BR-12, BR-14, BR-28
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Submit product form (category, name, slug, brand,\ndescription, material, gender target, base price)
+alt new product
+  MVC -> API : POST /api/admin/products
+else existing product
+  MVC -> API : PUT /api/admin/products/{id}
+end
+API -> SVC : SaveAsync(request)
+SVC -> SVC : Validate input (BasePrice >= 0) (BR-14)
+SVC -> DB : Any other product with the same Slug? (BR-12)
+alt invalid input or duplicate slug
+  SVC --> API : ValidationException / Conflict
+  API --> MVC : 400 Bad Request / 409 Conflict
+  MVC --> U : Show errors
+else existing SalePrice > new BasePrice (BR-14)
+  SVC --> API : BadRequest
+  API --> MVC : 400 Bad Request
+  MVC --> U : Show "Base price is below the current sale price"
+else valid
+  SVC -> DB : Insert or update product, UpdatedAt\nSaveChangesAsync
+  note right of SVC : Existing orders keep their snapshots (BR-28)
+  SVC --> API : ProductAdminDto
+  API --> MVC : 200 OK / 201 Created
+  MVC --> U : Show product; go on to variants (UC-47) and images (UC-48)
+end
+
+@enduml

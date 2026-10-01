@@ -1,0 +1,33 @@
+@startuml UC-39
+' Use case: ../use-cases/UC-39.md
+title UC-39: Track Order Status
+footer Feature ORD-03 | Business rules: BR-08, BR-35
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "OrdersController" as API <<Daisy.Api>>
+participant "OrderService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open order status
+MVC -> API : GET /api/orders/{id}
+API -> SVC : GetMyOrderAsync(currentUserId, id)
+SVC -> DB : Load order WHERE Id = id AND UserId = current user (BR-08)
+alt not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Order not found"
+else found
+  SVC --> API : OrderDetailDto\n(OrderStatus, CreatedAt, PaidAt, CompletedAt, CanceledAt)
+  API --> MVC : 200 OK
+  alt OrderStatus = Canceled
+    MVC --> U : Show canceled time and reason
+  else in progress or completed
+    MVC --> U : Show timeline Pending -> Confirmed -> Shipping -> Completed\nwith current step highlighted (BR-35)
+  end
+end
+
+@enduml

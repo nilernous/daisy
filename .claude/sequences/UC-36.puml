@@ -1,0 +1,54 @@
+@startuml UC-36
+' Use case: ../use-cases/UC-36.md
+title UC-36: Receive Payment Webhook
+footer Feature CHK-06 | Business rules: BR-32, BR-33, BR-34, BR-42
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Bank webhook service" as U
+participant "PaymentsController" as API <<Daisy.Api>>
+participant "PaymentService" as SVC <<Daisy.Application>>
+participant "IPaymentGateway (VietQR)" as GW <<Daisy.Infrastructure>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> API : POST /api/payments/webhook\n{ amount, content, reference, time } + API key header
+API -> SVC : HandleWebhookAsync(request)
+SVC -> GW : VerifyWebhookAsync(request) (BR-33)
+alt verification failed
+  GW --> SVC : Invalid
+  SVC --> API : Unauthorized
+  API --> U : 401 Unauthorized
+else verified
+  GW --> SVC : PaymentResult
+  SVC -> DB : Any PaymentTransaction WHERE BankReference = reference? (BR-33)
+  alt already recorded
+    SVC --> API : OK (no changes)
+    API --> U : 200 OK
+  else new transaction
+    SVC -> SVC : Extract OrderCode from transfer content
+    SVC -> DB : Find order by OrderCode
+    SVC -> SVC : Decide MatchResult (BR-32, BR-42):\nno order -> NoOrder\nnot Online / Paid / Canceled -> OrderNotPayable\namount < TotalAmount -> Underpaid\notherwise -> Matched
+    group transaction
+      opt MatchResult = Matched
+        SVC -> DB : UPDATE Orders SET PaymentStatus = Paid,\nPaidAt = transfer time, TransactionCode = reference\nWHERE OrderId = @id AND PaymentStatus = 'Unpaid'\nAND OrderStatus <> 'Canceled' (BR-33, BR-34)
+        opt 0 rows affected (expired or paid at the same moment)
+          SVC -> SVC : MatchResult = OrderNotPayable
+        end
+      end
+      SVC -> DB : Insert PaymentTransaction (reference, amount, content,\ntime, OrderId, MatchResult) (BR-42)
+      alt unique BankReference violated (duplicate delivered concurrently)
+        SVC -> DB : ROLLBACK
+        SVC --> API : OK (no changes)
+        API --> U : 200 OK
+      else saved
+        SVC -> DB : SaveChangesAsync + COMMIT
+        SVC --> API : OK
+        API --> U : 200 OK
+      end
+    end
+  end
+end
+note over SVC : A webhook never changes stock,\nSoldCount or voucher usage (BR-33).\nTransfers not Matched wait for staff (UC-71).
+
+@enduml

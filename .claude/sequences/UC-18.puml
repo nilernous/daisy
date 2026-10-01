@@ -1,0 +1,28 @@
+@startuml UC-18
+' Use case: ../use-cases/UC-18.md
+title UC-18: Sort Products
+footer Feature CAT-06 | Business rules: BR-14, BR-15
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "OData/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Choose sort option (BR-15)
+MVC -> API : GET /odata/products?...&$orderby={CreatedAt desc | EffectivePrice asc |\n EffectivePrice desc | SoldCount desc | AverageRating desc}
+API -> SVC : QueryProducts()
+SVC --> API : IQueryable<ProductListDto>\n(active products only, EffectivePrice, IsOnSale) (BR-10, BR-14)
+API -> DB : Apply OData options and execute query
+DB --> API : Matching rows (+ total count)
+API --> MVC : 200 OK { value, @odata.count }
+alt no results
+  MVC --> U : Show "No products found"
+else results found
+  MVC --> U : Show product cards\n(name, thumbnail, effective price, base price if on sale, rating)
+end
+
+@enduml

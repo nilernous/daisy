@@ -1,0 +1,36 @@
+@startuml UC-09
+' Use case: ../use-cases/UC-09.md
+title UC-09: Update Profile
+footer Feature PROF-02 | Business rules: BR-08
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "ProfileController" as API <<Daisy.Api>>
+participant "ProfileService" as SVC <<Daisy.Application>>
+participant "IStorageService" as STORE <<Daisy.Infrastructure>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Submit profile form (+ optional avatar file)
+MVC -> API : PUT /api/profile (multipart/form-data)
+API -> SVC : UpdateProfileAsync(currentUserId, request)
+SVC -> SVC : Validate fields and avatar type/size
+alt invalid input or unsupported avatar
+  SVC --> API : ValidationException
+  API --> MVC : 400 Bad Request (errors)
+  MVC --> U : Show errors
+else valid
+  opt new avatar uploaded
+    SVC -> STORE : SaveAsync(avatarFile)
+    STORE --> SVC : avatarUrl
+  end
+  SVC -> DB : Update FullName, Phone, Gender, DateOfBirth,\nAvatarUrl, UpdatedAt of current user\nSaveChangesAsync
+  note right of SVC : Email is not editable (BR-01)
+  SVC --> API : ProfileDto
+  API --> MVC : 200 OK
+  MVC --> U : Show updated profile
+end
+
+@enduml

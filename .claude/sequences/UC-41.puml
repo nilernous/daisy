@@ -1,0 +1,49 @@
+@startuml UC-41
+' Use case: ../use-cases/UC-41.md
+title UC-41: Write Review
+footer Feature REV-01 | Business rules: BR-08, BR-37, BR-38
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "ReviewsController" as API <<Daisy.Api>>
+participant "ReviewService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Click "Review" on an item of a completed order,\nenter rating and comment
+MVC -> API : POST /api/reviews { orderItemId, rating, comment }
+API -> SVC : CreateAsync(currentUserId, request)
+SVC -> SVC : Validate rating 1..5, comment <= 1000 characters (BR-37)
+alt invalid input
+  SVC --> API : ValidationException
+  API --> MVC : 400 Bad Request
+  MVC --> U : Show errors
+else valid
+  SVC -> DB : Load order item + order + variant
+  alt not found or order owned by another user (BR-08)
+    SVC --> API : NotFound
+    API --> MVC : 404 Not Found
+    MVC --> U : Show "Order item not found"
+  else OrderStatus is not Completed
+    SVC --> API : Conflict
+    API --> MVC : 409 Conflict
+    MVC --> U : Show "You can review after the order is completed"
+  else item already reviewed
+    SVC --> API : Conflict
+    API --> MVC : 409 Conflict
+    MVC --> U : Show "You have already reviewed this item"
+  else eligible
+    group transaction
+      SVC -> DB : Insert Review (UserId = order.UserId,\nProductId = variant.ProductId, OrderItemId,\nRating, Comment, IsVisible = 1)
+      SVC -> DB : Recalculate AverageRating, ReviewCount\nfrom visible reviews (BR-38)
+      SVC -> DB : SaveChangesAsync + COMMIT
+    end
+    SVC --> API : ReviewDto
+    API --> MVC : 201 Created
+    MVC --> U : Show review on the order item
+  end
+end
+
+@enduml

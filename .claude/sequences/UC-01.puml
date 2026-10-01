@@ -1,0 +1,41 @@
+@startuml UC-01
+' Use case: ../use-cases/UC-01.md
+title UC-01: Register
+footer Feature AUTH-01 | Business rules: BR-01, BR-02, BR-07
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest" as U
+participant "Daisy.Mvc" as MVC
+participant "AuthController" as API <<Daisy.Api>>
+participant "AuthService" as SVC <<Daisy.Application>>
+participant "IPasswordHasher" as HASH <<Daisy.Infrastructure>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Submit registration form\n(full name, email, password, confirmation)
+MVC -> API : POST /api/auth/register
+API -> SVC : RegisterAsync(request)
+SVC -> SVC : Validate input\n(required fields, email format, passwords match)
+alt invalid input
+  SVC --> API : ValidationException
+  API --> MVC : 400 Bad Request (field errors)
+  MVC --> U : Show field errors
+else valid input
+  SVC -> DB : Users.AnyAsync(email)
+  alt email already registered (BR-01)
+    SVC --> API : ConflictException
+    API --> MVC : 409 Conflict
+    MVC --> U : Show "Email already in use"
+  else new email
+    SVC -> HASH : HashPassword(password) (BR-02)
+    HASH --> SVC : passwordHash
+    SVC -> DB : Add User (Role = Customer, Status = Active)\nSaveChangesAsync
+    DB --> SVC : UserId
+    SVC --> API : RegisterResult
+    API --> MVC : 201 Created
+    MVC --> U : Redirect to login page
+  end
+end
+
+@enduml

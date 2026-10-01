@@ -1,0 +1,38 @@
+@startuml UC-31
+' Use case: ../use-cases/UC-31.md
+title UC-31: Merge Guest Cart
+footer Feature CART-06 | Business rules: BR-17, BR-20, BR-22
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+participant "AuthService" as AUTH <<Daisy.Application>>
+participant "CartService" as CART <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+AUTH -> CART : MergeGuestCartAsync(sessionId, userId)
+CART -> DB : Load lines WHERE SessionId = sessionId
+alt no guest lines
+  CART --> AUTH : Nothing to merge
+else guest lines found
+  group transaction (BR-22)
+    loop each guest line
+      CART -> DB : Find user line with same VariantId + variant stock
+      alt user line exists
+        CART -> CART : quantity = min(user + guest quantity, StockQuantity) (BR-20)
+        CART -> DB : Update user line quantity
+        CART -> DB : Delete guest line
+      else no user line
+        CART -> CART : quantity = min(guest quantity, StockQuantity)
+        CART -> DB : Set UserId = userId, SessionId = NULL, Quantity
+      end
+      opt resulting quantity = 0 (out of stock)
+        CART -> DB : Delete the line
+      end
+    end
+    CART -> DB : SaveChangesAsync + COMMIT
+  end
+  CART --> AUTH : Merged
+end
+
+@enduml

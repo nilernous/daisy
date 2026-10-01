@@ -1,0 +1,33 @@
+@startuml UC-32
+' Use case: ../use-cases/UC-32.md
+title UC-32: Select Shipping Address
+footer Feature CHK-01 | Business rules: BR-08, BR-09, BR-28
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "CheckoutController" as API <<Daisy.Api>>
+participant "CheckoutService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open checkout
+MVC -> API : GET /api/checkout (Bearer token)
+API -> SVC : GetCheckoutAsync(currentUserId)
+SVC -> DB : Load selected cart lines + current prices (BR-23)
+SVC -> DB : Load addresses WHERE UserId = current user\nORDER BY IsDefault DESC (BR-08, BR-09)
+SVC -> SVC : Calculate totals (BR-24)
+SVC --> API : CheckoutDto (items, addresses, totals)
+API --> MVC : 200 OK
+alt customer has no address
+  MVC --> U : Ask to add an address
+  ref over U, MVC : UC-11 Add / Update / Delete Address
+else has addresses
+  MVC --> U : Show addresses with default preselected
+  U -> MVC : Keep default or choose another address
+  MVC -> MVC : Keep chosen addressId for Place Order
+end
+note over MVC : The address is copied into the order\nwhen it is placed (BR-28, UC-34 / UC-35)
+
+@enduml

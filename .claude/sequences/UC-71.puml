@@ -1,0 +1,65 @@
+@startuml UC-71
+' Use case: ../use-cases/UC-71.md
+title UC-71: Reconcile Payment Transactions
+footer Added (extends AORD-05) | Business rules: BR-07, BR-32, BR-33, BR-34, BR-42
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/PaymentTransactionsController" as API <<Daisy.Api>>
+participant "PaymentService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Open "Unmatched transfers"
+MVC -> API : GET /api/admin/payment-transactions?needsReview=true&page={page}
+API -> SVC : GetTransactionsAsync(filter)
+SVC -> DB : Load PaymentTransactions WHERE MatchResult <> 'Matched'\nAND Resolution IS NULL ORDER BY ReceivedAt DESC
+SVC --> API : PagedResult<PaymentTransactionDto>
+API --> MVC : 200 OK
+MVC --> U : Show transfers (amount, content, reference, match result, order)
+
+alt Apply to an order
+  U -> MVC : Choose the order to apply the transfer to
+  MVC -> API : POST /api/admin/payment-transactions/{id}/apply { orderId, note? }
+  API -> SVC : ApplyAsync(currentUserId, id, orderId, note)
+  SVC -> DB : Load transaction + order
+  alt transaction Matched or already resolved
+    SVC --> API : Conflict
+    API --> MVC : 409 Conflict
+    MVC --> U : Show "This transfer is already resolved"
+  else order not Online, not Unpaid, Canceled,\nor TotalAmount > transfer amount (BR-42)
+    SVC --> API : Conflict
+    API --> MVC : 409 Conflict
+    MVC --> U : Show "This order cannot take this transfer"
+  else allowed
+    group transaction
+      SVC -> DB : UPDATE Orders SET PaymentStatus = Paid, PaidAt = transfer time,\nTransactionCode = BankReference\nWHERE PaymentStatus = 'Unpaid' AND OrderStatus <> 'Canceled' (BR-34)
+      SVC -> DB : Set Resolution = Applied, OrderId,\nResolvedByUserId, ResolvedAt, ResolutionNote
+      SVC -> DB : SaveChangesAsync + COMMIT
+    end
+    SVC --> API : PaymentTransactionDto
+    API --> MVC : 200 OK
+    MVC --> U : Show order as Paid
+  end
+else Mark refunded or ignore
+  U -> MVC : Choose "Refunded" or "Ignore" and enter a note
+  MVC -> API : PATCH /api/admin/payment-transactions/{id}/resolution\n{ resolution, note }
+  API -> SVC : ResolveAsync(currentUserId, id, resolution, note)
+  SVC -> DB : Load transaction
+  alt transaction Matched or already resolved
+    SVC --> API : Conflict
+    API --> MVC : 409 Conflict
+    MVC --> U : Show "This transfer is already resolved"
+  else open
+    SVC -> DB : Set Resolution, ResolvedByUserId, ResolvedAt, ResolutionNote\nSaveChangesAsync (BR-42)
+    SVC --> API : PaymentTransactionDto
+    API --> MVC : 200 OK
+    MVC --> U : Show transfer as resolved
+  end
+end
+
+@enduml

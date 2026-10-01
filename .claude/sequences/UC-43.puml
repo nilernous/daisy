@@ -1,0 +1,45 @@
+@startuml UC-43
+' Use case: ../use-cases/UC-43.md
+title UC-43: Create / Update Category
+footer Feature ACAT-01 | Business rules: BR-07, BR-12, BR-13
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/CategoriesController" as API <<Daisy.Api>>
+participant "CategoryService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Submit category form\n(name, slug, image, parent, sort order)
+alt new category
+  MVC -> API : POST /api/admin/categories
+else existing category
+  MVC -> API : PUT /api/admin/categories/{id}
+end
+API -> SVC : SaveAsync(request)
+SVC -> DB : Any other category with the same Slug? (BR-12)
+alt duplicate slug
+  SVC --> API : Conflict
+  API --> MVC : 409 Conflict
+  MVC --> U : Show "Slug already in use"
+else slug unique
+  opt parent selected
+    SVC -> DB : Walk up the parent chain of ParentCategoryId
+  end
+  alt parent is the category itself or one of its descendants (BR-13)
+    SVC --> API : BadRequest
+    API --> MVC : 400 Bad Request
+    MVC --> U : Show "Invalid parent category"
+  else valid
+    SVC -> DB : Insert or update category\nSaveChangesAsync
+    SVC --> API : CategoryDto
+    API --> MVC : 200 OK / 201 Created
+    MVC --> U : Show updated category list
+  end
+end
+
+@enduml

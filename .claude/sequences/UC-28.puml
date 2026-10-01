@@ -1,0 +1,38 @@
+@startuml UC-28
+' Use case: ../use-cases/UC-28.md
+title UC-28: Update Quantity
+footer Feature CART-03 | Business rules: BR-19, BR-20
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "CartController" as API <<Daisy.Api>>
+participant "CartService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Change quantity of a line
+MVC -> API : PUT /api/cart/items/{id} { quantity }
+API -> SVC : UpdateQuantityAsync(cartOwner, id, quantity)
+SVC -> DB : Find line WHERE Id = id AND owned by cartOwner
+alt line not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Reload cart
+else quantity < 1
+  SVC --> API : BadRequest
+  API --> MVC : 400 Bad Request
+  MVC --> U : Show "Use Remove to delete the item" (UC-29)
+else quantity > StockQuantity (BR-20)
+  SVC --> API : Conflict (available stock)
+  API --> MVC : 409 Conflict
+  MVC --> U : Show "Only N left in stock"
+else valid
+  SVC -> DB : Update Quantity\nSaveChangesAsync
+  SVC --> API : CartDto
+  API --> MVC : 200 OK
+  MVC --> U : Show updated line and totals
+end
+
+@enduml

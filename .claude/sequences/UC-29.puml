@@ -1,0 +1,30 @@
+@startuml UC-29
+' Use case: ../use-cases/UC-29.md
+title UC-29: Remove Item
+footer Feature CART-04 | Business rules: BR-19
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "CartController" as API <<Daisy.Api>>
+participant "CartService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Click "Remove" on a line
+MVC -> API : DELETE /api/cart/items/{id}
+API -> SVC : RemoveItemAsync(cartOwner, id)
+SVC -> DB : Find line WHERE Id = id AND owned by cartOwner (BR-19)
+alt not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Reload cart
+else found
+  SVC -> DB : Delete line\nSaveChangesAsync
+  SVC --> API : CartDto
+  API --> MVC : 200 OK
+  MVC --> U : Show cart without the line, updated totals
+end
+
+@enduml

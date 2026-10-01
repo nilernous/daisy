@@ -1,0 +1,27 @@
+@startuml UC-69
+' Use case: ../use-cases/UC-69.md
+title UC-69: Top Selling Products
+footer Feature DASH-03 | Business rules: BR-07, BR-40
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/DashboardController" as API <<Daisy.Api>>
+participant "DashboardService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Admin
+
+U -> MVC : Choose period and number of products
+MVC -> API : GET /api/admin/dashboard/top-products?from={from}&to={to}&top={n}
+API -> SVC : GetTopProductsAsync(from, to, n)
+SVC -> DB : SUM(OrderItems.Quantity) per product for orders\nnot Canceled and CreatedAt in period\nORDER BY quantity DESC, TOP n (BR-40)
+DB --> SVC : Aggregated rows
+SVC -> SVC : Fill missing periods with zero
+SVC --> API : TopProductDto[]
+API --> MVC : 200 OK
+MVC --> U : Show chart and table
+
+@enduml

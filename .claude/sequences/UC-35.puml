@@ -1,0 +1,46 @@
+@startuml UC-35
+' Use case: ../use-cases/UC-35.md
+title UC-35: Pay with VietQR
+footer Feature CHK-05 | Business rules: BR-23, BR-24, BR-26, BR-28, BR-29, BR-30, BR-31, BR-32, BR-41
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "CheckoutController" as CHK <<Daisy.Api>>
+participant "OrdersController" as API <<Daisy.Api>>
+participant "PaymentService" as SVC <<Daisy.Application>>
+participant "IPaymentGateway (VietQR)" as GW <<Daisy.Infrastructure>>
+database "DaisyDbContext" as DB <<SQL Server>>
+participant "Banking app" as BANK <<External>>
+
+U -> MVC : Confirm order with "VietQR bank transfer"
+MVC -> CHK : POST /api/checkout\n{ addressId, voucherCode?, paymentMethod: Online, expectedTotal }
+ref over CHK, DB : Validate and create the order as in UC-34\n(PaymentMethod = Online, PaymentStatus = Unpaid,\nPaymentExpiresAt = now + payment timeout) (BR-41)
+CHK --> MVC : 201 Created { orderId, orderCode }
+MVC -> API : GET /api/orders/{orderId}/payment-qr
+API -> SVC : GetPaymentQrAsync(currentUserId, orderId)
+SVC -> DB : Load order (owned by user, Online, Unpaid, not Canceled,\nPaymentExpiresAt > now)
+SVC -> GW : CreatePaymentAsync(amount = TotalAmount, content = OrderCode) (BR-32)
+GW --> SVC : PaymentQrResult (QR image, bank, account, amount, content)
+SVC -> SVC : expiresAt = PaymentExpiresAt
+SVC --> API : PaymentQrDto
+API --> MVC : 200 OK
+MVC --> U : Show QR code, amount, transfer content\nand a countdown to expiresAt
+U -> BANK : Scan QR and confirm transfer
+note over BANK : Bank -> webhook service -> Daisy.Api\n(UC-36 Receive Payment Webhook)
+loop every few seconds until Paid, expiresAt + grace, or customer leaves
+  MVC -> API : GET /api/orders/{orderId}
+  API --> MVC : 200 OK (PaymentStatus)
+end
+alt PaymentStatus = Paid
+  MVC --> U : Show "Payment received"
+else customer leaves before the deadline
+  MVC --> U : Order stays Unpaid;\nQR can be reopened from order detail (UC-38)\nor the order can be canceled (UC-40)
+else deadline + grace passed
+  MVC --> U : Show "Payment time expired"
+end
+note over SVC, DB : An unpaid order past its deadline + grace is canceled\nand its stock released by UC-72 (BR-41)
+
+@enduml

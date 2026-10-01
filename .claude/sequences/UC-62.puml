@@ -1,0 +1,36 @@
+@startuml UC-62
+' Use case: ../use-cases/UC-62.md
+title UC-62: Show / Hide Review
+footer Feature AREV-02 | Business rules: BR-07, BR-38, BR-39
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/ReviewsController" as API <<Daisy.Api>>
+participant "ReviewService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Toggle review visibility
+MVC -> API : PATCH /api/admin/reviews/{id}/visibility { isVisible }
+API -> SVC : SetVisibilityAsync(id, isVisible)
+SVC -> DB : Find review
+alt not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Review not found"
+else found
+  group transaction
+    SVC -> DB : Set IsVisible (BR-39)
+    SVC -> DB : Recalculate product AverageRating, ReviewCount\nfrom visible reviews (BR-38)
+    SVC -> DB : SaveChangesAsync + COMMIT
+  end
+  SVC --> API : OK
+  API --> MVC : 204 No Content
+  MVC --> U : Show updated review state
+end
+
+@enduml

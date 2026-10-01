@@ -1,0 +1,28 @@
+@startuml UC-17
+' Use case: ../use-cases/UC-17.md
+title UC-17: Filter Products
+footer Feature CAT-05 | Business rules: BR-10, BR-14
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "OData/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Choose filters (category, price range, size, color, brand, gender)
+MVC -> API : GET /odata/products?$filter=CategoryId eq {id}\n and EffectivePrice ge {min} and EffectivePrice le {max}\n and Brand eq '{brand}' and GenderTarget eq '{gender}'\n and Variants/any(v: v/Size eq '{size}' and v/Color eq '{color}')\n&$top=20&$count=true
+API -> SVC : QueryProducts()
+SVC --> API : IQueryable<ProductListDto>\n(active products only, EffectivePrice, IsOnSale) (BR-10, BR-14)
+API -> DB : Apply OData options and execute query
+DB --> API : Matching rows (+ total count)
+API --> MVC : 200 OK { value, @odata.count }
+alt no results
+  MVC --> U : Show "No products match these filters"
+else results found
+  MVC --> U : Show product cards\n(name, thumbnail, effective price, base price if on sale, rating)
+end
+
+@enduml

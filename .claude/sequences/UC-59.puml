@@ -1,0 +1,33 @@
+@startuml UC-59
+' Use case: ../use-cases/UC-59.md
+title UC-59: Activate / Deactivate Voucher
+footer Feature AVOU-02 | Business rules: BR-07, BR-11, BR-26
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/VouchersController" as API <<Daisy.Api>>
+participant "VoucherService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Admin
+
+U -> MVC : Toggle voucher on / off
+MVC -> API : PATCH /api/admin/vouchers/{id}/active { isActive }
+API -> SVC : SetActiveAsync(id, isActive)
+SVC -> DB : Find voucher
+alt not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Not found"
+else found
+  SVC -> DB : Set IsActive\nSaveChangesAsync
+note right of SVC : Inactive vouchers cannot be applied\nto new orders (BR-26)
+  SVC --> API : OK
+  API --> MVC : 204 No Content
+  MVC --> U : Show updated state
+end
+
+@enduml

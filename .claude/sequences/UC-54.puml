@@ -1,0 +1,31 @@
+@startuml UC-54
+' Use case: ../use-cases/UC-54.md
+title UC-54: View Order Detail (Admin)
+footer Feature AORD-02 | Business rules: BR-07, BR-28
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Staff / Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/OrdersController" as API <<Daisy.Api>>
+participant "OrderService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Staff, Admin
+
+U -> MVC : Open an order
+MVC -> API : GET /api/admin/orders/{id}
+API -> SVC : GetOrderAsync(id)
+SVC -> DB : Load order + items + customer (FullName, Email, Phone)
+alt not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Order not found"
+else found
+  SVC --> API : OrderAdminDetailDto\n(item snapshots, amounts, payment incl. TransactionCode,\ncustomer info) (BR-28)
+  API --> MVC : 200 OK
+  MVC --> U : Show order detail with actions:\nupdate status (UC-55), cancel (UC-56), payment (UC-57)
+end
+
+@enduml

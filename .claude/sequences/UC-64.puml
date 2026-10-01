@@ -1,0 +1,32 @@
+@startuml UC-64
+' Use case: ../use-cases/UC-64.md
+title UC-64: View User Detail
+footer Feature AUSR-02 | Business rules: BR-07
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/UsersController" as API <<Daisy.Api>>
+participant "UserService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Admin
+
+U -> MVC : Open a user
+MVC -> API : GET /api/admin/users/{id}?ordersPage={page}
+API -> SVC : GetUserDetailAsync(id, page)
+SVC -> DB : Load user profile, role, status
+alt not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "User not found"
+else found
+  SVC -> DB : Select user's orders ORDER BY CreatedAt DESC (paged)
+  SVC --> API : UserDetailDto
+  API --> MVC : 200 OK
+  MVC --> U : Show profile, order history,\nLock / Unlock (UC-65) and Change Role (UC-66)
+end
+
+@enduml

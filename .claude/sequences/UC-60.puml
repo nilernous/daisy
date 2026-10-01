@@ -1,0 +1,32 @@
+@startuml UC-60
+' Use case: ../use-cases/UC-60.md
+title UC-60: View Voucher Usage
+footer Feature AVOU-03 | Business rules: BR-07
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Admin" as U
+participant "Daisy.Mvc" as MVC
+participant "Admin/VouchersController" as API <<Daisy.Api>>
+participant "VoucherService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+note over API : Requires role: Admin
+
+U -> MVC : Open voucher usage
+MVC -> API : GET /api/admin/vouchers/{id}/usage?page={page}
+API -> SVC : GetUsageAsync(id, page)
+SVC -> DB : Load voucher (UsedCount, UsageLimit)
+alt not found
+  SVC --> API : NotFound
+  API --> MVC : 404 Not Found
+  MVC --> U : Show "Voucher not found"
+else found
+  SVC -> DB : Select orders WHERE VoucherId = id JOIN Users\n(OrderCode, customer, CreatedAt, DiscountAmount, OrderStatus)\nORDER BY CreatedAt DESC (paged)
+  SVC --> API : VoucherUsageDto
+  API --> MVC : 200 OK
+  MVC --> U : Show used / limit and order list
+end
+
+@enduml

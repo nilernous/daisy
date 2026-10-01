@@ -1,0 +1,28 @@
+@startuml UC-20
+' Use case: ../use-cases/UC-20.md
+title UC-20: New Arrivals
+footer Feature CAT-08 | Business rules: BR-10, BR-15
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "OData/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open home page (New Arrivals section, BR-15)
+MVC -> API : GET /odata/products?$orderby=CreatedAt desc&$top=8
+API -> SVC : QueryProducts()
+SVC --> API : IQueryable<ProductListDto>\n(active products only, EffectivePrice, IsOnSale) (BR-10, BR-14)
+API -> DB : Apply OData options and execute query
+DB --> API : Matching rows (+ total count)
+API --> MVC : 200 OK { value, @odata.count }
+alt no results
+  MVC --> U : Hide the New Arrivals section
+else results found
+  MVC --> U : Show product cards\n(name, thumbnail, effective price, base price if on sale, rating)
+end
+
+@enduml

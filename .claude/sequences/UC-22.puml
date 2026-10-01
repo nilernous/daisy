@@ -1,0 +1,30 @@
+@startuml UC-22
+' Use case: ../use-cases/UC-22.md
+title UC-22: Flash Sale / Hot Deal
+footer Feature CAT-10 | Business rules: BR-10, BR-14, BR-15
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "OData/ProductsController" as API <<Daisy.Api>>
+participant "ProductService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open Flash Sale section
+MVC -> API : GET /odata/products?$filter=IsOnSale eq true&$orderby=SaleEndAt
+API -> SVC : QueryProducts()
+SVC --> API : IQueryable<ProductListDto>\n(active products only, EffectivePrice, IsOnSale) (BR-10, BR-14)
+API -> DB : Apply OData options and execute query
+DB --> API : Matching rows (+ total count)
+API --> MVC : 200 OK { value, @odata.count }
+alt no results
+  MVC --> U : Hide the Flash Sale section
+else results found
+  MVC --> U : Show product cards\n(name, thumbnail, effective price, base price if on sale, rating)
+end
+
+note over SVC : IsOnSale = SalePrice IS NOT NULL\nAND (SaleStartAt IS NULL OR SaleStartAt <= now)\nAND (SaleEndAt IS NULL OR now <= SaleEndAt) (BR-14)
+
+@enduml

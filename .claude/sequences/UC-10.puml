@@ -1,0 +1,28 @@
+@startuml UC-10
+' Use case: ../use-cases/UC-10.md
+title UC-10: View Addresses
+footer Feature PROF-03 | Business rules: BR-08, BR-09
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "ProfileController" as API <<Daisy.Api>>
+participant "ProfileService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open address book
+MVC -> API : GET /api/profile/addresses
+API -> SVC : GetAddressesAsync(currentUserId)
+SVC -> DB : Select addresses WHERE UserId = current user\nORDER BY IsDefault DESC (BR-08, BR-09)
+DB --> SVC : Addresses
+SVC --> API : AddressDto[]
+API --> MVC : 200 OK
+alt no addresses
+  MVC --> U : Show empty address book with "Add address" (UC-11)
+else addresses found
+  MVC --> U : Show addresses, default first
+end
+
+@enduml

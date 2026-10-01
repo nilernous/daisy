@@ -1,0 +1,39 @@
+@startuml UC-06
+' Use case: ../use-cases/UC-06.md
+title UC-06: Reset Password
+footer Feature AUTH-06 | Business rules: BR-02, BR-05
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest" as U
+participant "Daisy.Mvc" as MVC
+participant "AuthController" as API <<Daisy.Api>>
+participant "AuthService" as SVC <<Daisy.Application>>
+participant "IPasswordHasher" as HASH <<Daisy.Infrastructure>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Open reset link (token in URL)
+MVC --> U : Show new password form
+U -> MVC : Submit new password + confirmation
+alt passwords do not match
+  MVC --> U : Show "Passwords do not match"
+else passwords match
+  MVC -> API : POST /api/auth/reset-password { token, newPassword }
+  API -> SVC : ResetPasswordAsync(request)
+  SVC -> DB : Find user by reset token
+  alt token invalid or ResetPasswordExpiresAt passed
+    SVC --> API : BadRequest
+    API --> MVC : 400 Bad Request
+    MVC --> U : Show "Link is invalid or expired, request a new one"
+  else token valid
+    SVC -> HASH : HashPassword(newPassword) (BR-02)
+    HASH --> SVC : passwordHash
+    SVC -> DB : Update PasswordHash\nClear ResetPasswordToken + expiry\nClear RefreshToken (BR-05)\nSaveChangesAsync
+    SVC --> API : OK
+    API --> MVC : 204 No Content
+    MVC --> U : Redirect to login with success message
+  end
+end
+
+@enduml

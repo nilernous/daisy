@@ -1,0 +1,48 @@
+@startuml UC-26
+' Use case: ../use-cases/UC-26.md
+title UC-26: Add to Cart
+footer Feature CART-01 | Business rules: BR-10, BR-17, BR-19, BR-20
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Guest / Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "CartController" as API <<Daisy.Api>>
+participant "CartService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+U -> MVC : Choose size, color, quantity\nand click "Add to cart"
+alt no variant selected
+  MVC --> U : Show "Please choose a size and color"
+else variant selected
+  MVC -> API : POST /api/cart/items { variantId, quantity }\n(Bearer token, or X-Cart-Session for guests)
+  API -> SVC : AddItemAsync(cartOwner, variantId, quantity)
+  note right of API : cartOwner = UserId if signed in,\notherwise SessionId (BR-19)
+  SVC -> DB : Load variant + product
+  alt variant or product not found or hidden (BR-10)
+    SVC --> API : NotFound
+    API --> MVC : 404 Not Found
+    MVC --> U : Show "Product not available"
+  else available
+    SVC -> DB : Find cart line (cartOwner, variantId)
+    SVC -> SVC : newQuantity = existing quantity + quantity
+    alt newQuantity > StockQuantity (BR-20)
+      SVC --> API : Conflict (available stock)
+      API --> MVC : 409 Conflict
+      MVC --> U : Show "Only N left in stock"
+    else enough stock
+      alt line already exists
+        SVC -> DB : Update Quantity = newQuantity
+      else new line
+        SVC -> DB : Insert CartItem (UserId or SessionId,\nVariantId, Quantity, IsSelected = 1)
+      end
+      SVC -> DB : SaveChangesAsync
+      SVC --> API : CartSummaryDto (item count)
+      API --> MVC : 200 OK
+      MVC --> U : Update cart badge
+    end
+  end
+end
+
+@enduml

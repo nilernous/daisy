@@ -1,0 +1,63 @@
+@startuml UC-11
+' Use case: ../use-cases/UC-11.md
+title UC-11: Add / Update / Delete Address
+footer Feature PROF-04 | Business rules: BR-08, BR-09, BR-28
+autonumber
+hide footbox
+skinparam responseMessageBelowArrow true
+
+actor "Customer" as U
+participant "Daisy.Mvc" as MVC
+participant "ProfileController" as API <<Daisy.Api>>
+participant "ProfileService" as SVC <<Daisy.Application>>
+database "DaisyDbContext" as DB <<SQL Server>>
+
+alt Add address
+  U -> MVC : Submit new address\n(receiver, phone, province, district, ward, street)
+  MVC -> API : POST /api/profile/addresses
+  API -> SVC : AddAddressAsync(currentUserId, request)
+  SVC -> SVC : Validate input
+  alt invalid input
+    SVC --> API : ValidationException
+    API --> MVC : 400 Bad Request
+    MVC --> U : Show field errors
+  else valid
+    SVC -> DB : Insert UserAddress (UserId = current user)\nSaveChangesAsync
+    SVC --> API : AddressDto
+    API --> MVC : 201 Created
+    MVC --> U : Show updated address book
+  end
+else Update address
+  U -> MVC : Edit an address and save
+  MVC -> API : PUT /api/profile/addresses/{id}
+  API -> SVC : UpdateAddressAsync(currentUserId, id, request)
+  SVC -> DB : Find address WHERE Id = id AND UserId = current user (BR-08)
+  alt not found or owned by another user
+    SVC --> API : NotFound
+    API --> MVC : 404 Not Found
+    MVC --> U : Show "Address not found"
+  else found and input valid
+    SVC -> DB : Update fields\nSaveChangesAsync
+    SVC --> API : AddressDto
+    API --> MVC : 200 OK
+    MVC --> U : Show updated address book
+  end
+else Delete address
+  U -> MVC : Delete an address and confirm
+  MVC -> API : DELETE /api/profile/addresses/{id}
+  API -> SVC : DeleteAddressAsync(currentUserId, id)
+  SVC -> DB : Find address WHERE Id = id AND UserId = current user (BR-08)
+  alt not found or owned by another user
+    SVC --> API : NotFound
+    API --> MVC : 404 Not Found
+    MVC --> U : Show "Address not found"
+  else found
+    SVC -> DB : Delete address\nSaveChangesAsync
+    note right of SVC : Orders keep their own address snapshot (BR-28).\nIf it was the default, no default remains (BR-09).
+    SVC --> API : OK
+    API --> MVC : 204 No Content
+    MVC --> U : Show updated address book
+  end
+end
+
+@enduml
