@@ -160,6 +160,7 @@ Ownership (BR-08): for every `Customer` endpoint the owner is taken from the `su
 
 - MVC creates a random session id (GUID) for each visitor without a login, stores it in a cookie and sends it as `X-Cart-Session`.
 - On cart endpoints, a valid Bearer token takes precedence; `X-Cart-Session` is then ignored.
+- An invalid or expired Bearer token on a cart endpoint returns `401 UNAUTHORIZED` (MVC then refreshes, §3.2); it never falls back to the guest cart.
 - If neither is present, cart endpoints return `400` with code `CART_OWNER_REQUIRED` (`GET /api/cart` returns an empty cart instead).
 - `POST /api/auth/login` with `X-Cart-Session` merges the guest cart into the user cart (UC-31, BR-22).
 
@@ -267,6 +268,7 @@ Validation example (`400`):
 | `REVIEW_NOT_ALLOWED` | 409 | Order is not `Completed` (BR-37) |
 | `ALREADY_REVIEWED` | 409 | Order item already has a review (BR-37) |
 | `CONCURRENCY_CONFLICT` | 409 | Optimistic concurrency failure |
+| `TOO_MANY_REQUESTS` | 429 | Rate limit exceeded (§10); `Retry-After` header is set |
 | `EMAIL_SERVICE_UNAVAILABLE` | 503 | Reset email could not be sent |
 | `INTERNAL_ERROR` | 500 | Unexpected error |
 
@@ -1023,11 +1025,12 @@ Errors: `400 VALIDATION_FAILED`, `404 NOT_FOUND`, `409 ORDER_NOT_CANCELABLE`.
 |---|---|---|---|---|
 | POST | `/api/payments/webhook` | Webhook | UC-36 | 200 |
 
-Called by the bank webhook service (SePay, Casso or payOS — not chosen yet) when a transfer arrives on the receiving account. The provider payload is bound to a provider-specific model and mapped to a normalized `PaymentWebhookRequest` inside `VietQrPaymentGateway`; the rest of the flow is provider-independent.
+Called by the **SePay** bank webhook service when a transfer arrives on the receiving account. The SePay payload is mapped to a normalized `BankTransfer` inside `SePayPaymentGateway`; the rest of the flow is provider-independent. With `VietQr:Provider = Mock` (development), `MockPaymentGateway` accepts the same payload and key.
 
 #### Authentication
 
-- The provider sends the configured key, e.g. `Authorization: Apikey {VietQrOptions.WebhookApiKey}` (header name per provider), or a signature over the body when the provider supports it.
+- SePay sends the configured key as `Authorization: Apikey {VietQr:WebhookApiKey}`.
+- Transfers to an account other than `VietQr:AccountNumber`, and outgoing transfers (`transferType = "out"`), are acknowledged and ignored. When SePay sends no `referenceCode`, the reference becomes `SEPAY-{id}`.
 - Verification happens **before** the body is used (BR-33). Comparison is constant-time.
 - Failure → `401 INVALID_WEBHOOK_SIGNATURE`.
 
@@ -1089,6 +1092,16 @@ A webhook never changes stock, `SoldCount` or voucher usage.
 
 Only a transient server error returns `5xx`, which lets the provider retry; step 2 makes the retry safe.
 
+#### `POST /api/dev/payments/simulate-transfer` (Development only)
+
+Available only when the API runs in the Development environment with `VietQr:Provider = Mock`; otherwise `404`. Policy: Authenticated.
+
+```json
+{ "orderCode": "DS2610014K7Q", "amount": null, "content": null }
+```
+
+Builds a SePay-format webhook (amount defaults to the order total, content to the order code) and runs it through the normal webhook flow above. `200 OK` — `{ "success": true }`. The MVC payment page shows a "simulate transfer" button in development that calls it.
+
 ---
 
 ### 6.9 Reviews — `ReviewsController`
@@ -1116,11 +1129,13 @@ Editing and deleting reviews are not in scope (features.docx defines only REV-01
 | Method | Path | Policy | UC | Success |
 |---|---|---|---|---|
 | GET | `/api/admin/categories` | Staff | UC-43 *(added)* | 200 |
+| GET | `/api/admin/categories/{id}` | Staff | UC-43 *(added)* | 200 |
 | POST | `/api/admin/categories` | Staff | UC-43 | 201 |
 | PUT | `/api/admin/categories/{id}` | Staff | UC-43 | 200 |
 | PATCH | `/api/admin/categories/{id}/visibility` | Staff | UC-44 | 204 |
 
 - `GET` returns the full tree including hidden categories, with `isActive` and `productCount` on each node.
+- `GET /{id}` returns one `CategoryDto` (used by the edit form).
 - `POST` / `PUT` body:
 
 ```json
@@ -1648,60 +1663,62 @@ GET /odata/users?$filter=(contains(tolower(fullName),'an') or contains(tolower(e
 | 32 | GET | `/api/orders/{id}/payment-qr` | Customer | UC-35, UC-38 |
 | 33 | POST | `/api/orders/{id}/cancel` | Customer | UC-40 |
 | 34 | POST | `/api/payments/webhook` | Webhook | UC-36 |
-| 35 | POST | `/api/reviews` | Customer | UC-41 |
-| 36 | GET | `/api/admin/categories` *(added)* | Staff | UC-43 |
-| 37 | POST | `/api/admin/categories` | Staff | UC-43 |
-| 38 | PUT | `/api/admin/categories/{id}` | Staff | UC-43 |
-| 39 | PATCH | `/api/admin/categories/{id}/visibility` | Staff | UC-44 |
-| 40 | GET | `/api/admin/products` *(added)* | Staff | UC-45 |
-| 41 | GET | `/api/admin/products/{id}` *(added)* | Staff | UC-45 |
-| 42 | POST | `/api/admin/products` | Staff | UC-45 |
-| 43 | PUT | `/api/admin/products/{id}` | Staff | UC-45 |
-| 44 | PATCH | `/api/admin/products/{id}/visibility` | Staff | UC-46 |
-| 45 | POST | `/api/admin/products/{id}/variants` | Staff | UC-47 |
-| 46 | PUT | `/api/admin/variants/{id}` | Staff | UC-47 |
-| 47 | PATCH | `/api/admin/variants/{id}/visibility` | Staff | UC-47 |
-| 48 | POST | `/api/admin/products/{id}/images` | Staff | UC-48 |
-| 49 | PATCH | `/api/admin/images/{id}/thumbnail` | Staff | UC-48 |
-| 50 | PUT | `/api/admin/products/{id}/images/order` | Staff | UC-48 |
-| 51 | PATCH | `/api/admin/images/{id}/variant` | Staff | UC-48 |
-| 52 | DELETE | `/api/admin/images/{id}` | Staff | UC-48 |
-| 53 | PATCH | `/api/admin/products/{id}/featured` | Staff | UC-49 |
-| 54 | PUT | `/api/admin/products/{id}/sale` | Admin | UC-50 |
-| 55 | DELETE | `/api/admin/products/{id}/sale` | Admin | UC-50 |
-| 56 | PUT | `/api/admin/variants/{id}/stock` | Staff | UC-51 |
-| 57 | GET | `/api/admin/inventory/low-stock` | Staff | UC-52 |
-| 58 | GET | `/odata/orders` | Staff | UC-53 |
-| 59 | GET | `/api/admin/orders/{id}` | Staff | UC-54 |
-| 60 | PATCH | `/api/admin/orders/{id}/status` | Staff | UC-55 |
-| 61 | POST | `/api/admin/orders/{id}/cancel` | Staff | UC-56 |
-| 62 | PATCH | `/api/admin/orders/{id}/payment` | Staff | UC-57 |
-| 63 | GET | `/api/admin/payment-transactions` *(added)* | Staff | UC-71 |
-| 64 | POST | `/api/admin/payment-transactions/{id}/apply` *(added)* | Staff | UC-71 |
-| 65 | PATCH | `/api/admin/payment-transactions/{id}/resolution` *(added)* | Staff | UC-71 |
-| 66 | GET | `/api/admin/vouchers` *(added)* | Admin | UC-58 |
-| 67 | GET | `/api/admin/vouchers/{id}` *(added)* | Admin | UC-58 |
-| 68 | POST | `/api/admin/vouchers` | Admin | UC-58 |
-| 69 | PUT | `/api/admin/vouchers/{id}` | Admin | UC-58 |
-| 70 | PATCH | `/api/admin/vouchers/{id}/active` | Admin | UC-59 |
-| 71 | GET | `/api/admin/vouchers/{id}/usage` | Admin | UC-60 |
-| 72 | GET | `/odata/reviews` | Staff | UC-61 |
-| 73 | PATCH | `/api/admin/reviews/{id}/visibility` | Staff | UC-62 |
-| 74 | GET | `/odata/users` | Admin | UC-63 |
-| 75 | GET | `/api/admin/users/{id}` | Admin | UC-64 |
-| 76 | PATCH | `/api/admin/users/{id}/status` | Admin | UC-65 |
-| 77 | PATCH | `/api/admin/users/{id}/role` | Admin | UC-66 |
-| 78 | GET | `/api/admin/dashboard/revenue` | Admin | UC-67 |
-| 79 | GET | `/api/admin/dashboard/orders-by-status` | Admin | UC-68 |
-| 80 | GET | `/api/admin/dashboard/top-products` | Admin | UC-69 |
-| 81 | GET | `/api/admin/dashboard/new-customers` | Admin | UC-70 |
+| 35 | POST | `/api/dev/payments/simulate-transfer` *(added, Development only)* | Authenticated | UC-35 |
+| 36 | POST | `/api/reviews` | Customer | UC-41 |
+| 37 | GET | `/api/admin/categories` *(added)* | Staff | UC-43 |
+| 38 | GET | `/api/admin/categories/{id}` *(added)* | Staff | UC-43 |
+| 39 | POST | `/api/admin/categories` | Staff | UC-43 |
+| 40 | PUT | `/api/admin/categories/{id}` | Staff | UC-43 |
+| 41 | PATCH | `/api/admin/categories/{id}/visibility` | Staff | UC-44 |
+| 42 | GET | `/api/admin/products` *(added)* | Staff | UC-45 |
+| 43 | GET | `/api/admin/products/{id}` *(added)* | Staff | UC-45 |
+| 44 | POST | `/api/admin/products` | Staff | UC-45 |
+| 45 | PUT | `/api/admin/products/{id}` | Staff | UC-45 |
+| 46 | PATCH | `/api/admin/products/{id}/visibility` | Staff | UC-46 |
+| 47 | POST | `/api/admin/products/{id}/variants` | Staff | UC-47 |
+| 48 | PUT | `/api/admin/variants/{id}` | Staff | UC-47 |
+| 49 | PATCH | `/api/admin/variants/{id}/visibility` | Staff | UC-47 |
+| 50 | POST | `/api/admin/products/{id}/images` | Staff | UC-48 |
+| 51 | PATCH | `/api/admin/images/{id}/thumbnail` | Staff | UC-48 |
+| 52 | PUT | `/api/admin/products/{id}/images/order` | Staff | UC-48 |
+| 53 | PATCH | `/api/admin/images/{id}/variant` | Staff | UC-48 |
+| 54 | DELETE | `/api/admin/images/{id}` | Staff | UC-48 |
+| 55 | PATCH | `/api/admin/products/{id}/featured` | Staff | UC-49 |
+| 56 | PUT | `/api/admin/products/{id}/sale` | Admin | UC-50 |
+| 57 | DELETE | `/api/admin/products/{id}/sale` | Admin | UC-50 |
+| 58 | PUT | `/api/admin/variants/{id}/stock` | Staff | UC-51 |
+| 59 | GET | `/api/admin/inventory/low-stock` | Staff | UC-52 |
+| 60 | GET | `/odata/orders` | Staff | UC-53 |
+| 61 | GET | `/api/admin/orders/{id}` | Staff | UC-54 |
+| 62 | PATCH | `/api/admin/orders/{id}/status` | Staff | UC-55 |
+| 63 | POST | `/api/admin/orders/{id}/cancel` | Staff | UC-56 |
+| 64 | PATCH | `/api/admin/orders/{id}/payment` | Staff | UC-57 |
+| 65 | GET | `/api/admin/payment-transactions` | Staff | UC-71 |
+| 66 | POST | `/api/admin/payment-transactions/{id}/apply` | Staff | UC-71 |
+| 67 | PATCH | `/api/admin/payment-transactions/{id}/resolution` | Staff | UC-71 |
+| 68 | GET | `/api/admin/vouchers` *(added)* | Admin | UC-58 |
+| 69 | GET | `/api/admin/vouchers/{id}` *(added)* | Admin | UC-58 |
+| 70 | POST | `/api/admin/vouchers` | Admin | UC-58 |
+| 71 | PUT | `/api/admin/vouchers/{id}` | Admin | UC-58 |
+| 72 | PATCH | `/api/admin/vouchers/{id}/active` | Admin | UC-59 |
+| 73 | GET | `/api/admin/vouchers/{id}/usage` | Admin | UC-60 |
+| 74 | GET | `/odata/reviews` | Staff | UC-61 |
+| 75 | PATCH | `/api/admin/reviews/{id}/visibility` | Staff | UC-62 |
+| 76 | GET | `/odata/users` | Admin | UC-63 |
+| 77 | GET | `/api/admin/users/{id}` | Admin | UC-64 |
+| 78 | PATCH | `/api/admin/users/{id}/status` | Admin | UC-65 |
+| 79 | PATCH | `/api/admin/users/{id}/role` | Admin | UC-66 |
+| 80 | GET | `/api/admin/dashboard/revenue` | Admin | UC-67 |
+| 81 | GET | `/api/admin/dashboard/orders-by-status` | Admin | UC-68 |
+| 82 | GET | `/api/admin/dashboard/top-products` | Admin | UC-69 |
+| 83 | GET | `/api/admin/dashboard/new-customers` | Admin | UC-70 |
 
 Endpoints marked *(added)* are design additions beyond features.docx and the first set of sequence diagrams:
 
 - Admin lists and edit forms that UC-43, UC-45 and UC-58 need (the storefront endpoints hide inactive items, so they cannot be reused).
-- Payment transaction reconciliation for UC-71 (added together with BR-41 / BR-42).
+- A single-category read for the admin edit form, and a Development-only transfer simulation for the mock VietQR provider.
 
-UC-72 (expiry of unpaid VietQR orders) has no endpoint; it runs as a background job (`UnpaidOrderExpiryJob`).
+UC-72 (CHK-08, expiry of unpaid VietQR orders) has no endpoint; it runs as a background job (`UnpaidOrderExpiryJob`).
 
 ---
 
@@ -1718,6 +1735,7 @@ UC-72 (expiry of unpaid VietQR orders) has no endpoint; it runs as a background 
 | `CheckoutController` | `/api/checkout` | `Features/Checkout/CheckoutService` |
 | `OrdersController` | `/api/orders` | `Features/Orders/OrderService`, `Features/Payments/PaymentService` |
 | `PaymentsController` | `/api/payments` | `Features/Payments/PaymentService` |
+| `DevPaymentsController` (Development only) | `/api/dev/payments` | `PaymentService` |
 | `ReviewsController` | `/api/reviews` | `Features/Reviews/ReviewService` |
 | `Admin/CategoriesController` | `/api/admin/categories` | `CategoryService` |
 | `Admin/ProductsController` | `/api/admin/products`, `/api/admin/variants`, `/api/admin/images` | `ProductService` |
@@ -1765,9 +1783,14 @@ Background job (no controller):
 | `Jwt` | `Issuer`, `Audience`, `SigningKey`, `AccessTokenMinutes` (15), `RefreshTokenDays` (7) |
 | `PasswordReset` | `TokenMinutes` (30), `ResetUrl` (MVC page) |
 | `Checkout` | `ShippingFee` (flat, e.g. 30000), `FreeShippingThreshold` (optional) |
-| `VietQr` | `BankBin`, `BankName`, `AccountNumber`, `AccountName`, `QrTemplate`, `WebhookApiKey`, `Provider`, `PaymentTimeoutMinutes` (30), `ExpiryGraceMinutes` (5) |
-| `Storage` | `RootPath`, `PublicBaseUrl`, `MaxImageBytes` |
-| `Smtp` | `Host`, `Port`, `UserName`, `Password`, `FromAddress` |
+| `VietQr` | `Provider` (`SePay` or `Mock`), `BankBin`, `BankName`, `AccountNumber`, `AccountName`, `QrTemplate`, `WebhookApiKey`, `PaymentTimeoutMinutes` (30), `ExpiryGraceMinutes` (5) |
+| `Storage` | `RootPath` (default `../storage`), `PublicBasePath` (`/uploads`), `MaxImageBytes` (5 MB), `MaxAvatarBytes` (2 MB), `MaxFilesPerUpload` (10) |
+| `Smtp` | `Host`, `Port`, `UserName`, `Password`, `FromAddress`, `FromName`; an empty `Host` writes emails to the log instead of sending them |
+| `RateLimits` | `Auth` (10/min), `Password` (5/15 min), `Voucher` (20/min) |
+| `BackgroundJobs` | `Enabled` (true); turns `UnpaidOrderExpiryJob` off, e.g. in tests |
+| `ConnectionStrings` | `Daisy` (SQL Server) |
+
+Development defaults: `appsettings.Development.json` sets `VietQr:Provider = Mock` with a demo account; `Jwt:SigningKey` is set with `dotnet user-secrets` on each machine. The MVC client reads `Api:BaseUrl` (default `https://localhost:7001`).
 
 ---
 
@@ -1784,10 +1807,8 @@ Decisions this document makes where the source documents are silent. Confirm or 
 | 5 | `Payment status Failed` | BR-34 allows `Unpaid → Failed`, but no use case sets it; the API exposes no action for it. Expired VietQR orders keep `PaymentStatus = Unpaid` and become `OrderStatus = Canceled`. |
 | 6 | Order code format | `DS` + `yyMMdd` + 4 random uppercase alphanumerics (e.g. `DS2610014K7Q`), retried on collision (BR-29). |
 | 7 | `Gender` / `GenderTarget` values | Proposed enums in §5.1; the database columns are free text. |
-| 8 | Webhook provider | Not chosen (SePay / Casso / payOS); only the provider adapter and key header depend on it. |
-| 9 | Refresh token storage | Stored as a SHA-256 hash in `Users.RefreshToken` (the column comment does not say). |
-| 10 | Profile for Staff / Admin | Profile endpoints are restricted to `Customer` as in UC-08; Staff and Admin only change their password. Relax to `Authenticated` if staff need a profile page. |
-| 11 | Expiry notification | The customer is not emailed when an order expires; they see it in Order Detail. An email can be added later through `IEmailService`. |
+| 8 | Profile for Staff / Admin | Profile endpoints are restricted to `Customer` as in UC-08; Staff and Admin only change their password. Relax to `Authenticated` if staff need a profile page. |
+| 9 | Expiry notification | The customer is not emailed when an order expires; they see it in Order Detail. An email can be added later through `IEmailService`. |
 
 Resolved (2026-10-01):
 
@@ -1795,3 +1816,9 @@ Resolved (2026-10-01):
 - Unpaid VietQR orders expire at `Orders.PaymentExpiresAt` and are canceled by `UnpaidOrderExpiryJob` (BR-41, UC-72).
 - Every verified transfer is stored in `PaymentTransactions`; unmatched ones are reconciled by staff (BR-42, UC-71, §6.14).
 - `Orders.TransactionCode` has the filtered unique index `UX_Orders_TransactionCode`.
+
+Resolved during implementation (2026-10-01):
+
+- Webhook provider: **SePay** (`Authorization: Apikey`), with a mock provider for development (§6.8).
+- Refresh and password reset tokens are stored as SHA-256 hashes in `Users.RefreshToken` and `Users.ResetPasswordToken`.
+- Six foreign-key indexes were added to `DaisyDB.sql` so the script and the EF Core migration create identical databases.

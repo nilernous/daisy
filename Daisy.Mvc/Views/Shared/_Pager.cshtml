@@ -1,0 +1,15 @@
+@model PagerModel
+@if (Model.TotalPages > 1)
+{
+    var first = Math.Max(1, Model.Page - 2);
+    var last = Math.Min(Model.TotalPages, Model.Page + 2);
+    <nav class="pager" aria-label="Phân trang">
+        @if (Model.Page > 1) { <a href="@Model.UrlFor(Model.Page - 1)" rel="prev">Trước</a> } else { <span class="off">Trước</span> }
+        @for (var p = first; p <= last; p++)
+        {
+            if (p == Model.Page) { <span class="on" aria-current="page">@p</span> }
+            else { <a href="@Model.UrlFor(p)">@p</a> }
+        }
+        @if (Model.Page < Model.TotalPages) { <a href="@Model.UrlFor(Model.Page + 1)" rel="next">Sau</a> } else { <span class="off">Sau</span> }
+    </nav>
+}

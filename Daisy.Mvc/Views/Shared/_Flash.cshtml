@@ -1,0 +1,7 @@
+@{
+    var (message, tone) = TempData.ReadFlash();
+}
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="flash flash--@tone" role="status">@message</div>
+}

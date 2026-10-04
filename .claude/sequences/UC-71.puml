@@ -1,7 +1,7 @@
 @startuml UC-71
 ' Use case: ../use-cases/UC-71.md
 title UC-71: Reconcile Payment Transactions
-footer Added (extends AORD-05) | Business rules: BR-07, BR-32, BR-33, BR-34, BR-42
+footer Feature AORD-06 | Business rules: BR-07, BR-32, BR-33, BR-34, BR-42
 autonumber
 hide footbox
 skinparam responseMessageBelowArrow true

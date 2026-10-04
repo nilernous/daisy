@@ -1,0 +1,39 @@
+@model RegisterForm
+
+<div class="wrap">
+    <div class="auth">
+        <div class="panel stack" style="--stack:20px">
+            <div>
+                <h1 style="font-size:var(--fs-2xl)">Tạo tài khoản</h1>
+                <p class="muted" style="margin:0">Để theo dõi đơn hàng, lưu địa chỉ và đánh giá sản phẩm đã mua.</p>
+            </div>
+            <form method="post" action="/account/register" asp-antiforgery="true" class="stack" style="--stack:16px" novalidate>
+                <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+                <input type="hidden" asp-for="ReturnUrl" />
+                <div class="field">
+                    <label asp-for="FullName">Họ và tên</label>
+                    <input asp-for="FullName" autocomplete="name" autofocus />
+                    <span asp-validation-for="FullName" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Email">Email</label>
+                    <input asp-for="Email" type="email" autocomplete="email" />
+                    <span asp-validation-for="Email" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Password">Mật khẩu</label>
+                    <input asp-for="Password" type="password" autocomplete="new-password" />
+                    <span class="hint">Ít nhất 8 ký tự, có cả chữ và số.</span>
+                    <span asp-validation-for="Password" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="ConfirmPassword">Nhập lại mật khẩu</label>
+                    <input asp-for="ConfirmPassword" type="password" autocomplete="new-password" />
+                    <span asp-validation-for="ConfirmPassword" class="field-error"></span>
+                </div>
+                <button class="btn btn--block" type="submit">Tạo tài khoản</button>
+            </form>
+            <p class="small" style="margin:0">Đã có tài khoản? <a href="/account/login">Đăng nhập</a></p>
+        </div>
+    </div>
+</div>

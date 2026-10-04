@@ -1,0 +1,171 @@
+@model ProductDetailViewModel
+@{
+    var p = Model.Product;
+    var sizes = p.Variants.Select(v => v.Size).Where(s => s is not null).Distinct().ToList();
+    var colors = p.Variants.Where(v => v.Color is not null).GroupBy(v => v.Color).Select(g => g.First()).ToList();
+    var images = p.Images.OrderBy(i => i.SortOrder).ToList();
+    var first = p.Variants.FirstOrDefault(v => v.InStock) ?? p.Variants.FirstOrDefault();
+    var variantsJson = System.Text.Json.JsonSerializer.Serialize(
+        p.Variants.Select(v => new { id = v.Id, size = v.Size, color = v.Color, swatch = Swatch.For(v.Color, v.ColorHex, p.Name), dark = Swatch.IsDark(Swatch.For(v.Color, v.ColorHex, p.Name)), price = v.Price, priceText = Display.Money(v.Price), stock = v.StockQuantity, low = v.IsLowStock }));
+    var imagesJson = System.Text.Json.JsonSerializer.Serialize(images.Select(i => new { url = Media.For(i.Url), color = i.Color }));
+    var reviews = Model.Reviews;
+}
+
+<div class="wrap page">
+    <div class="crumbs"><a href="/">Trang chủ</a> / <a href="/products?category=@p.Category.Slug">@p.Category.Name</a> / @p.Name</div>
+
+    <div class="pdp">
+        <div class="gallery" data-gallery>
+            <div class="gallery__main" data-gallery-main>
+                <partial name="_Media" model='new MediaModel(images.FirstOrDefault()?.Url, p.Name, first?.Color, first?.ColorHex)' />
+            </div>
+            @if (images.Count > 1)
+            {
+                <div class="gallery__thumbs" role="list">
+                    @for (var i = 0; i < images.Count; i++)
+                    {
+                        <button type="button" role="listitem" data-thumb="@Media.For(images[i].Url)" data-color="@images[i].Color" aria-current="@(i == 0 ? "true" : "false")" aria-label="Ảnh @(i + 1)">
+                            <img src="@Media.For(images[i].Url)" alt="" loading="lazy" />
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="buybox">
+            <div>
+                @if (!string.IsNullOrEmpty(p.Brand)) { <div class="muted small">@p.Brand</div> }
+                <h1>@p.Name</h1>
+                @if (p.ReviewCount > 0)
+                {
+                    <a class="small" href="#reviews"><span class="stars" aria-hidden="true">★</span> @p.AverageRating.ToString("0.0") (@p.ReviewCount đánh giá)</a>
+                }
+            </div>
+
+            <div class="price">
+                <span class="tag tag--lg" data-price>@Display.Money(first?.Price ?? p.EffectivePrice)</span>
+                @if (p.IsOnSale) { <span class="was">@Display.Money(p.BasePrice + (first?.ExtraPrice ?? 0))</span> }
+            </div>
+            @if (p.IsOnSale && p.SaleEndAt is not null)
+            {
+                <p class="small" style="margin:0">Giá giảm đến @Display.DateTime(p.SaleEndAt)</p>
+            }
+
+            <form method="post" action="/products/@p.Slug/cart" asp-antiforgery="true" class="stack" style="--stack:20px" data-variant-form>
+                <script type="application/json" data-variants>@Html.Raw(variantsJson)</script>
+                <script type="application/json" data-images>@Html.Raw(imagesJson)</script>
+                <input type="hidden" name="variantId" value="@(first?.Id ?? 0)" data-variant-id />
+
+                @if (colors.Count > 0)
+                {
+                    <div class="optgroup">
+                        <span class="label">Màu: <span data-color-label>@first?.Color</span></span>
+                        <div class="opts">
+                            @foreach (var c in colors)
+                            {
+                                <button type="button" class="opt" data-color="@c.Color" aria-pressed="@(c.Color == first?.Color ? "true" : "false")">
+                                    <span class="swatch" style="background:@Swatch.For(c.Color, c.ColorHex, c.Color!)"></span>@c.Color
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (sizes.Count > 0)
+                {
+                    <div class="optgroup">
+                        <span class="label">Size</span>
+                        <div class="opts">
+                            @foreach (var s in sizes)
+                            {
+                                <button type="button" class="opt" data-size="@s" aria-pressed="@(s == first?.Size ? "true" : "false")">@s</button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <div class="row">
+                    <div class="qty" data-qty>
+                        <button type="button" data-step="-1" aria-label="Giảm số lượng">−</button>
+                        <input name="quantity" type="number" value="1" min="1" max="@(first?.StockQuantity ?? 1)" aria-label="Số lượng" />
+                        <button type="button" data-step="1" aria-label="Tăng số lượng">+</button>
+                    </div>
+                    <span class="stock-note" data-stock aria-live="polite"></span>
+                </div>
+
+                <div class="row">
+                    <button class="btn" type="submit" data-add>Thêm vào giỏ</button>
+                    <button class="btn btn--ghost" type="submit" name="buyNow" value="true" data-add>Mua ngay</button>
+                </div>
+            </form>
+
+            @if (Model.CanWishlist)
+            {
+                <form method="post" action="/products/@p.Slug/wishlist" asp-antiforgery="true">
+                    <input type="hidden" name="productId" value="@p.Id" />
+                    <button class="linkbtn" type="submit">Lưu vào yêu thích</button>
+                </form>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(p.Description))
+            {
+                <div>
+                    <h3>Mô tả</h3>
+                    <p>@p.Description</p>
+                </div>
+            }
+            <dl class="specs">
+                @if (!string.IsNullOrEmpty(p.Material)) { <dt>Chất liệu</dt><dd>@p.Material</dd> }
+                @if (!string.IsNullOrEmpty(p.GenderTarget)) { <dt>Dành cho</dt><dd>@Display.GenderTarget(p.GenderTarget)</dd> }
+                <dt>Đã bán</dt><dd class="num">@p.SoldCount</dd>
+                <dt>Giao hàng</dt><dd>Toàn quốc, phí 30.000đ</dd>
+            </dl>
+        </div>
+    </div>
+
+    <section class="section" id="reviews" aria-labelledby="reviews-title">
+        <h2 id="reviews-title">Đánh giá</h2>
+        <div class="reviews">
+            <div>
+                <div class="score num">@reviews.AverageRating.ToString("0.0")</div>
+                <div class="muted small">@reviews.ReviewCount đánh giá đã hiển thị</div>
+                <div class="bars">
+                    @foreach (var star in new[] { "5", "4", "3", "2", "1" })
+                    {
+                        var count = reviews.RatingBreakdown.GetValueOrDefault(star);
+                        var percent = reviews.ReviewCount == 0 ? 0 : count * 100 / reviews.ReviewCount;
+                        <a href="?rating=@star#reviews" style="text-decoration:none" aria-label="Lọc @star sao, @count đánh giá">
+                            <div><span>@star★</span><i><b style="width:@percent%"></b></i><span class="num">@count</span></div>
+                        </a>
+                    }
+                </div>
+                @if (Model.RatingFilter is not null)
+                {
+                    <p class="small" style="margin-top:12px"><a href="?#reviews">Xem tất cả đánh giá</a></p>
+                }
+            </div>
+            <div>
+                @if (reviews.Reviews.Items.Count == 0)
+                {
+                    <p class="muted">Chưa có đánh giá @(Model.RatingFilter is null ? "nào" : $"{Model.RatingFilter} sao"). Đánh giá chỉ đến từ khách đã nhận hàng.</p>
+                }
+                @foreach (var r in reviews.Reviews.Items)
+                {
+                    <article class="review">
+                        <div class="row row--between">
+                            <strong>@r.UserFullName</strong>
+                            <span class="muted small">@Display.Date(r.CreatedAt)</span>
+                        </div>
+                        <div class="stars" aria-label="@r.Rating trên 5 sao">@(new string('★', r.Rating))<span style="color:var(--line-strong)">@(new string('★', 5 - r.Rating))</span></div>
+                        @if (r.Size is not null || r.Color is not null)
+                        {
+                            <div class="muted small">Đã mua: @string.Join(" / ", new[] { r.Size, r.Color }.Where(x => x is not null))</div>
+                        }
+                        @if (!string.IsNullOrEmpty(r.Comment)) { <p style="margin:6px 0 0">@r.Comment</p> }
+                    </article>
+                }
+                <partial name="_Pager" model='new PagerModel(reviews.Reviews.Page, reviews.Reviews.TotalPages, n => $"?reviewPage={n}{(Model.RatingFilter is null ? "" : $"&rating={Model.RatingFilter}")}#reviews")' />
+            </div>
+        </div>
+    </section>
+</div>

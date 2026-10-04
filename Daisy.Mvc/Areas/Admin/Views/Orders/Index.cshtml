@@ -1,0 +1,70 @@
+@model OrdersAdminViewModel
+@{
+    var f = Model.Filter;
+}
+
+<div class="admin__head">
+    <div>
+        <h1>Đơn hàng</h1>
+        <p class="muted" style="margin:0">@Model.TotalCount đơn khớp bộ lọc</p>
+    </div>
+</div>
+
+<nav class="chips" style="margin-bottom:14px" aria-label="Trạng thái đơn">
+    <a class="chip @(f.Status is null ? "chip--on" : "")" href="/admin/orders">Tất cả</a>
+    @foreach (var s in Enum.GetValues<OrderStatus>())
+    {
+        <a class="chip @(f.Status == s ? "chip--on" : "")" href="/admin/orders?status=@s">@Display.Label(s)</a>
+    }
+</nav>
+
+<form class="filterbar" method="get" action="/admin/orders">
+    @if (f.Status is not null) { <input type="hidden" name="status" value="@f.Status" /> }
+    <div class="field"><label for="code">Mã đơn hoặc tên khách</label><input id="code" name="code" value="@f.Code" placeholder="DS2610…" /></div>
+    <div class="field">
+        <label for="payment">Thanh toán</label>
+        <select id="payment" name="payment">
+            <option value="">Tất cả</option>
+            @foreach (var p in Enum.GetValues<PaymentStatus>()) { <option value="@p" selected="@(f.Payment == p)">@Display.Label(p)</option> }
+        </select>
+    </div>
+    <div class="field">
+        <label for="method">Hình thức</label>
+        <select id="method" name="method">
+            <option value="">Tất cả</option>
+            <option value="COD" selected="@(f.Method == PaymentMethod.COD)">COD</option>
+            <option value="Online" selected="@(f.Method == PaymentMethod.Online)">VietQR</option>
+        </select>
+    </div>
+    <div class="field"><label for="from">Từ ngày</label><input id="from" name="from" type="date" value="@f.From?.ToString("yyyy-MM-dd")" /></div>
+    <div class="field"><label for="to">Đến ngày</label><input id="to" name="to" type="date" value="@f.To?.ToString("yyyy-MM-dd")" /></div>
+    <button class="btn btn--ghost" type="submit">Lọc</button>
+</form>
+
+@if (Model.Orders.Count == 0)
+{
+    <div class="empty"><h2>Không có đơn hàng phù hợp</h2><p>Đổi bộ lọc để xem đơn khác.</p></div>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Mã đơn</th><th>Khách hàng</th><th>Ngày đặt</th><th>Trạng thái</th><th>Hình thức</th><th class="num">Tổng tiền</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var o in Model.Orders)
+                {
+                    <tr>
+                        <td><strong class="num">@o.OrderCode</strong><div class="muted">@o.ItemCount sản phẩm</div></td>
+                        <td>@o.CustomerName<div class="muted">@o.ReceiverPhone</div></td>
+                        <td>@Display.DateTime(o.CreatedAt)</td>
+                        <td><partial name="_Pills" model="(o.OrderStatus, o.PaymentStatus)" /></td>
+                        <td>@(o.PaymentMethod == PaymentMethod.COD ? "COD" : "VietQR")</td>
+                        <td class="num"><strong>@Display.Money(o.TotalAmount)</strong></td>
+                        <td class="num"><a href="/admin/orders/detail/@o.Id">Xử lý</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <partial name="_Pager" model="new PagerModel(f.Page, Model.TotalPages, f.PageUrl)" />
+}

@@ -1,0 +1,51 @@
+@model UsersAdminViewModel
+@{
+    string Url(int page) => $"/admin/users?page={page}" + (string.IsNullOrEmpty(Model.Q) ? "" : $"&q={Uri.EscapeDataString(Model.Q)}") + (Model.Role is null ? "" : $"&role={Model.Role}") + (Model.Status is null ? "" : $"&status={Model.Status}");
+}
+
+<div class="admin__head">
+    <div>
+        <h1>Người dùng</h1>
+        <p class="muted" style="margin:0">@Model.TotalCount tài khoản</p>
+    </div>
+</div>
+
+<form class="filterbar" method="get" action="/admin/users">
+    <div class="field"><label for="q">Tên hoặc email</label><input id="q" name="q" value="@Model.Q" /></div>
+    <div class="field">
+        <label for="role">Vai trò</label>
+        <select id="role" name="role">
+            <option value="">Tất cả</option>
+            @foreach (var r in Enum.GetValues<UserRole>()) { <option value="@r" selected="@(Model.Role == r)">@Display.Label(r)</option> }
+        </select>
+    </div>
+    <div class="field">
+        <label for="status">Trạng thái</label>
+        <select id="status" name="status">
+            <option value="">Tất cả</option>
+            @foreach (var s in Enum.GetValues<UserStatus>()) { <option value="@s" selected="@(Model.Status == s)">@Display.Label(s)</option> }
+        </select>
+    </div>
+    <button class="btn btn--ghost" type="submit">Lọc</button>
+</form>
+
+<div class="table-wrap">
+    <table class="table">
+        <thead><tr><th>Họ tên</th><th>Email</th><th>Điện thoại</th><th>Vai trò</th><th>Trạng thái</th><th>Ngày tạo</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var u in Model.Users)
+            {
+                <tr>
+                    <td><strong>@u.FullName</strong></td>
+                    <td>@u.Email</td>
+                    <td class="num">@u.Phone</td>
+                    <td>@Display.Label(u.Role)</td>
+                    <td><span class="pill @(u.Status == UserStatus.Active ? "pill--good" : "pill--bad")">@Display.Label(u.Status)</span></td>
+                    <td>@Display.Date(u.CreatedAt)</td>
+                    <td class="num"><a href="/admin/users/detail/@u.Id">Xem</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+<partial name="_Pager" model="new PagerModel(Model.Page, Model.TotalPages, Url)" />

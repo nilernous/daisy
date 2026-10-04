@@ -1,0 +1,109 @@
+@model OrderAdminDetail
+
+<div class="admin__head">
+    <div>
+        <div class="crumbs"><a href="/admin/orders">Đơn hàng</a> / @Model.OrderCode</div>
+        <h1 class="num">Đơn @Model.OrderCode</h1>
+        <div class="row" style="margin-top:6px"><partial name="_Pills" model="(Model.OrderStatus, Model.PaymentStatus)" /><span class="muted small">Đặt lúc @Display.DateTime(Model.CreatedAt)</span></div>
+    </div>
+    <div class="row">
+        @foreach (var next in Model.AllowedStatusTransitions)
+        {
+            <form method="post" action="/admin/orders/status/@Model.Id" asp-antiforgery="true" class="inline-form">
+                <input type="hidden" name="status" value="@next" />
+                <button class="btn" type="submit">Chuyển sang “@Display.Label(next)”</button>
+            </form>
+        }
+    </div>
+</div>
+
+@if (Model.OrderStatus == OrderStatus.Pending && Model.PaymentMethod == PaymentMethod.Online && Model.PaymentStatus == PaymentStatus.Unpaid)
+{
+    <p class="flash flash--info" style="margin:0 0 20px">Đơn chuyển khoản VietQR chưa thanh toán: chỉ xác nhận được sau khi nhận tiền. Hạn thanh toán @Display.DateTime(Model.PaymentExpiresAt); quá hạn hệ thống tự hủy và hoàn tồn kho.</p>
+}
+
+<div class="split">
+    <div class="stack" style="--stack:20px">
+        <section class="panel"><partial name="_OrderTrack" model="Model" /></section>
+
+        <section class="panel">
+            <h2 style="font-size:var(--fs-l)">Sản phẩm</h2>
+            <div class="table-wrap">
+                <table class="table">
+                    <thead><tr><th>Sản phẩm</th><th class="num">Đơn giá</th><th class="num">SL</th><th class="num">Thành tiền</th></tr></thead>
+                    <tbody>
+                        @foreach (var i in Model.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="cell-product">
+                                        <div class="thumb"><partial name="_Media" model='new MediaModel(i.ImageUrl, i.ProductName, i.Color)' /></div>
+                                        <div><strong>@i.ProductName</strong><div class="muted">@string.Join(" / ", new[] { i.Size, i.Color }.Where(x => x is not null))</div></div>
+                                    </div>
+                                </td>
+                                <td class="num">@Display.Money(i.UnitPrice)</td>
+                                <td class="num">@i.Quantity</td>
+                                <td class="num">@Display.Money(i.LineTotal)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="summary" style="max-width:340px;margin:16px 0 0 auto">
+                <div><span>Tạm tính</span><span>@Display.Money(Model.SubtotalAmount)</span></div>
+                <div><span>Giảm giá@(Model.VoucherCode is null ? "" : $" ({Model.VoucherCode})")</span><span>@(Model.DiscountAmount > 0 ? "−" + Display.Money(Model.DiscountAmount) : "0đ")</span></div>
+                <div><span>Phí giao hàng</span><span>@Display.Money(Model.ShippingFee)</span></div>
+                <div class="total"><span>Tổng cộng</span><span>@Display.Money(Model.TotalAmount)</span></div>
+            </div>
+        </section>
+    </div>
+
+    <aside class="stack" style="--stack:20px">
+        <section class="panel">
+            <h3>Khách hàng</h3>
+            <p style="margin:0"><a href="@(User.IsInRole("Admin") ? $"/admin/users/detail/{Model.Customer.Id}" : "#")"><strong>@Model.Customer.FullName</strong></a><br />@Model.Customer.Email<br /><span class="num">@Model.Customer.Phone</span></p>
+            <h3 style="margin-top:16px">Giao đến</h3>
+            <p style="margin:0"><strong>@Model.ReceiverName</strong> <span class="num">@Model.ReceiverPhone</span><br />@Model.ShippingAddress</p>
+            @if (!string.IsNullOrEmpty(Model.CustomerNote)) { <p class="small" style="margin:10px 0 0">Ghi chú: @Model.CustomerNote</p> }
+        </section>
+
+        <section class="panel">
+            <h3>Thanh toán</h3>
+            <p style="margin:0 0 12px">@Display.Label(Model.PaymentMethod)<br />
+                @if (Model.PaidAt is not null) { <span>Đã thanh toán lúc @Display.DateTime(Model.PaidAt)</span><br /> }
+                @if (Model.TransactionCode is not null) { <span class="small muted">Mã giao dịch: <span class="num">@Model.TransactionCode</span></span> }
+            </p>
+            @foreach (var action in Model.AllowedPaymentActions)
+            {
+                <form method="post" action="/admin/orders/payment/@Model.Id" asp-antiforgery="true" class="stack" style="--stack:8px;margin-top:10px">
+                    <input type="hidden" name="paymentAction" value="@action" />
+                    @if (action == "ConfirmTransfer")
+                    {
+                        <div class="field">
+                            <label for="tx">Mã giao dịch ngân hàng</label>
+                            <input id="tx" name="transactionCode" required placeholder="VD: FT2627412345" />
+                            <span class="hint">Chỉ dùng khi ngân hàng không gửi webhook. Giao dịch đã báo về thì xử lý ở mục Đối soát.</span>
+                        </div>
+                    }
+                    <button class="btn btn--ghost btn--small" type="submit">@Display.PaymentActionLabel(action)</button>
+                </form>
+            }
+        </section>
+
+        @if (Model.CanCancel)
+        {
+            <section class="panel">
+                <details>
+                    <summary class="linkbtn linkbtn--danger">Hủy đơn hàng</summary>
+                    <form method="post" action="/admin/orders/cancel/@Model.Id" asp-antiforgery="true" class="stack" style="--stack:10px;margin-top:12px">
+                        <div class="field">
+                            <label for="reason">Lý do hủy</label>
+                            <textarea id="reason" name="reason" required maxlength="500" placeholder="VD: khách yêu cầu hủy qua điện thoại"></textarea>
+                        </div>
+                        <button class="btn btn--danger btn--small" type="submit">Xác nhận hủy và hoàn tồn kho</button>
+                    </form>
+                </details>
+            </section>
+        }
+    </aside>
+</div>

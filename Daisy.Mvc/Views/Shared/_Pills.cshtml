@@ -1,0 +1,3 @@
+@model (OrderStatus Status, PaymentStatus Payment)
+<span class="pill pill--@Display.Tone(Model.Status)">@Display.Label(Model.Status)</span>
+<span class="pill pill--@Display.Tone(Model.Payment)">@Display.Label(Model.Payment)</span>

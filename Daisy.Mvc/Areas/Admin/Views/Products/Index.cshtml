@@ -1,0 +1,78 @@
+@model ProductsAdminViewModel
+@{
+    var f = Model.Filter;
+    var categories = Model.Categories.SelectMany(c => c.Flatten()).ToList();
+}
+
+<div class="admin__head">
+    <div>
+        <h1>Sản phẩm</h1>
+        <p class="muted" style="margin:0">@Model.Products.TotalCount sản phẩm, gồm cả sản phẩm đang ẩn</p>
+    </div>
+    <a class="btn" href="/admin/products/create">Thêm sản phẩm</a>
+</div>
+
+<form class="filterbar" method="get" action="/admin/products">
+    <div class="field"><label for="search">Tìm</label><input id="search" name="search" value="@f.Search" placeholder="Tên, thương hiệu, SKU" /></div>
+    <div class="field">
+        <label for="categoryId">Danh mục</label>
+        <select id="categoryId" name="categoryId">
+            <option value="">Tất cả</option>
+            @foreach (var (node, depth) in categories) { <option value="@node.Id" selected="@(f.CategoryId == node.Id)">@(new string('—', depth)) @node.Name</option> }
+        </select>
+    </div>
+    <div class="field">
+        <label for="isActive">Hiển thị</label>
+        <select id="isActive" name="isActive">
+            <option value="">Tất cả</option>
+            <option value="true" selected="@(f.IsActive == true)">Đang hiện</option>
+            <option value="false" selected="@(f.IsActive == false)">Đang ẩn</option>
+        </select>
+    </div>
+    <div class="field">
+        <label for="isOnSale">Khuyến mãi</label>
+        <select id="isOnSale" name="isOnSale">
+            <option value="">Tất cả</option>
+            <option value="true" selected="@(f.IsOnSale == true)">Đang giảm giá</option>
+        </select>
+    </div>
+    <label class="check"><input type="checkbox" name="lowStock" value="true" @(f.LowStock ? "checked" : "") /> Sắp hết hàng</label>
+    <label class="check"><input type="checkbox" name="isFeatured" value="true" @(f.IsFeatured == true ? "checked" : "") /> Nổi bật</label>
+    <button class="btn btn--ghost" type="submit">Lọc</button>
+</form>
+
+@if (Model.Products.Items.Count == 0)
+{
+    <div class="empty"><h2>Không có sản phẩm phù hợp</h2><p>Đổi bộ lọc hoặc thêm sản phẩm mới.</p></div>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Sản phẩm</th><th>Danh mục</th><th class="num">Giá bán</th><th class="num">Tồn kho</th><th class="num">Đã bán</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var p in Model.Products.Items)
+                {
+                    <tr>
+                        <td>
+                            <div class="cell-product">
+                                <div class="thumb"><partial name="_Media" model='new MediaModel(p.ThumbnailUrl, p.Name)' /></div>
+                                <div><strong>@p.Name</strong><div class="muted">@p.Brand</div></div>
+                            </div>
+                        </td>
+                        <td>@p.CategoryName</td>
+                        <td class="num">@Display.Money(p.EffectivePrice)@if (p.IsOnSale) { <div class="was">@Display.Money(p.BasePrice)</div> }</td>
+                        <td class="num">@p.TotalStock @if (p.HasLowStock) { <div><span class="pill pill--wait">Sắp hết</span></div> }</td>
+                        <td class="num">@p.SoldCount</td>
+                        <td>
+                            @if (p.IsActive) { <span class="pill pill--good">Đang bán</span> } else { <span class="pill pill--muted">Đang ẩn</span> }
+                            @if (p.IsFeatured) { <span class="pill pill--info">Nổi bật</span> }
+                        </td>
+                        <td class="num"><a href="/admin/products/edit/@p.Id">Sửa</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <partial name="_Pager" model='new PagerModel(Model.Products.Page, Model.Products.TotalPages, n => "/admin/products" + f.ToQuery(n))' />
+}

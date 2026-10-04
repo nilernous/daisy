@@ -1,0 +1,25 @@
+@model OrderDetail
+@{
+    var steps = new[] { OrderStatus.Pending, OrderStatus.Confirmed, OrderStatus.Shipping, OrderStatus.Completed };
+    var reached = Array.IndexOf(steps, Model.OrderStatus);
+    var canceled = Model.OrderStatus == OrderStatus.Canceled;
+}
+@if (canceled)
+{
+    <p class="flash flash--bad" style="margin:0">
+        Đơn hàng đã hủy lúc @Display.DateTime(Model.CanceledAt)@(string.IsNullOrEmpty(Model.CancelReason) ? "" : $". Lý do: {(Model.CancelReason == "Payment not received in time" ? "quá hạn thanh toán chuyển khoản" : Model.CancelReason)}").
+    </p>
+}
+else
+{
+    <ol class="track" aria-label="Tiến trình đơn hàng">
+        @for (var i = 0; i < steps.Length; i++)
+        {
+            <li class="@(i <= reached ? "done" : "")" aria-current="@(i == reached ? "step" : null)">
+                @Display.Label(steps[i])
+                @if (i == 0) { <div class="muted small" style="font-weight:400">@Display.DateTime(Model.CreatedAt)</div> }
+                @if (i == 3 && Model.CompletedAt is not null) { <div class="muted small" style="font-weight:400">@Display.DateTime(Model.CompletedAt)</div> }
+            </li>
+        }
+    </ol>
+}

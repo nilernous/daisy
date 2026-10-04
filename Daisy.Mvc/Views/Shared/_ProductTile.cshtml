@@ -1,0 +1,17 @@
+@model ProductListItem
+@{
+    var color = Model.Variants?.FirstOrDefault()?.Color;
+}
+<a class="tile" href="/products/@Model.Slug">
+    <div class="tile__media">
+        <partial name="_Media" model='new MediaModel(Model.ThumbnailUrl, Model.Name, color)' />
+        <span class="tile__tag"><partial name="_Price" model='new PriceModel(Model.EffectivePrice, Model.IsOnSale ? Model.BasePrice : null)' /></span>
+    </div>
+    <div>
+        <div class="tile__name">@Model.Name</div>
+        <div class="tile__meta">
+            @if (!string.IsNullOrEmpty(Model.Brand)) { <span>@Model.Brand</span> }
+            @if (Model.ReviewCount > 0) { <span><span class="stars" aria-hidden="true">★</span> @Model.AverageRating.ToString("0.0") (@Model.ReviewCount)</span> }
+        </div>
+    </div>
+</a>

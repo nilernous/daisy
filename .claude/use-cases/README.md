@@ -1,11 +1,11 @@
 # Daisy Use Cases
 
-Use cases derived from `docs/docx/features.docx` (74 features in 16 groups).
+Use cases derived from `docs/docx/features.docx` (76 features in 16 groups).
 
 - Each user-facing feature maps to one use case, `UC-XX.md`.
 - Four features describe system behavior rather than a user goal; they are captured as business rules instead (see below).
 - Business rules are in [`../business-rules/`](../business-rules/README.md).
-- UC-71 and UC-72 are not in features.docx; they were added with the VietQR payment design (payment deadline and reconciliation of unmatched transfers).
+- UC-71 (AORD-06) and UC-72 (CHK-08) came from the VietQR payment design and were added to features.docx on 2026-10-01.
 
 ## Actors
 
@@ -85,7 +85,7 @@ Use cases derived from `docs/docx/features.docx` (74 features in 16 groups).
 | [UC-34](UC-34.md) | Place Order (COD) | CHK-04 | Customer | A customer places an order paid by Cash on Delivery. |
 | [UC-35](UC-35.md) | Pay with VietQR | CHK-05 | Customer | A customer places an order and pays by bank transfer by scanning a VietQR code. |
 | [UC-36](UC-36.md) | Receive Payment Webhook | CHK-06 | Bank webhook service (System) | The bank webhook service notifies Daisy of an incoming transfer, and Daisy marks the matching order as paid. |
-| [UC-72](UC-72.md) | Expire Unpaid VietQR Order | — (added) | System | A background job cancels VietQR orders not paid before their deadline and releases their stock. |
+| [UC-72](UC-72.md) | Expire Unpaid VietQR Order | CHK-08 | System | A background job cancels VietQR orders not paid before their deadline and releases their stock. |
 
 ### My Orders
 
@@ -137,7 +137,7 @@ Use cases derived from `docs/docx/features.docx` (74 features in 16 groups).
 | [UC-55](UC-55.md) | Update Order Status | AORD-03 | Admin, Staff | Staff move an order forward: Confirmed -> Shipping -> Completed. |
 | [UC-56](UC-56.md) | Cancel Order (Admin) | AORD-04 | Admin, Staff | Staff cancel an order with a reason; stock is restored. |
 | [UC-57](UC-57.md) | Update Payment Status | AORD-05 | Admin, Staff | Staff confirm COD collection, confirm a VietQR transfer manually, or mark a refund. |
-| [UC-71](UC-71.md) | Reconcile Payment Transactions | — (added) | Admin, Staff | Staff apply, refund or ignore bank transfers that were not matched to an order automatically. |
+| [UC-71](UC-71.md) | Reconcile Payment Transactions | AORD-06 | Admin, Staff | Staff apply, refund or ignore bank transfers that were not matched to an order automatically. |
 
 ### Voucher Management
 
@@ -224,6 +224,7 @@ Use cases derived from `docs/docx/features.docx` (74 features in 16 groups).
 | CHK-05 | [UC-35](UC-35.md) |
 | CHK-06 | [UC-36](UC-36.md) |
 | CHK-07 | [BR-30](../business-rules/BR-30.md) |
+| CHK-08 | [UC-72](UC-72.md) |
 | ORD-01 | [UC-37](UC-37.md) |
 | ORD-02 | [UC-38](UC-38.md) |
 | ORD-03 | [UC-39](UC-39.md) |
@@ -246,6 +247,7 @@ Use cases derived from `docs/docx/features.docx` (74 features in 16 groups).
 | AORD-03 | [UC-55](UC-55.md) |
 | AORD-04 | [UC-56](UC-56.md) |
 | AORD-05 | [UC-57](UC-57.md) |
+| AORD-06 | [UC-71](UC-71.md) |
 | AVOU-01 | [UC-58](UC-58.md) |
 | AVOU-02 | [UC-59](UC-59.md) |
 | AVOU-03 | [UC-60](UC-60.md) |

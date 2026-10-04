@@ -1,0 +1,25 @@
+@model BarListModel
+@{
+    var max = Model.Points.Count == 0 ? 0 : Model.Points.Max(p => p.Value);
+}
+<figure class="chartcard">
+    <figcaption><h3 style="margin:0 0 14px">@Model.Title</h3></figcaption>
+    @if (Model.Points.Count == 0 || max == 0)
+    {
+        <p class="muted small">Chưa có dữ liệu trong khoảng thời gian này.</p>
+    }
+    else
+    {
+        <div class="hbars" role="list">
+            @foreach (var p in Model.Points)
+            {
+                var width = (double)(p.Value / max * 100);
+                <div class="hbar" role="listitem" tabindex="0" data-tip-value="@p.Display" data-tip-label="@p.Label" data-tip-detail="@p.Detail">
+                    <span class="hbar__label" title="@p.Label">@p.Label</span>
+                    <i aria-hidden="true"><b style="width:@width.ToString(System.Globalization.CultureInfo.InvariantCulture)%"></b></i>
+                    <span class="num">@p.Display</span>
+                </div>
+            }
+        </div>
+    }
+</figure>

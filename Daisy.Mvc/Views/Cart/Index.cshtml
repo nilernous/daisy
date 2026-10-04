@@ -1,0 +1,107 @@
+@model Cart
+@{
+    var available = Model.Items.Where(i => i.IsAvailable).ToList();
+    var allSelected = available.Count > 0 && available.All(i => i.IsSelected);
+}
+
+<div class="wrap page">
+    <div class="page__head">
+        <h1>Giỏ hàng</h1>
+        @if (Model.Items.Count > 0) { <p class="muted num">@Model.TotalQuantity sản phẩm</p> }
+    </div>
+
+    @if (Model.Items.Count == 0)
+    {
+        <div class="empty">
+            <h2>Giỏ hàng đang trống</h2>
+            <p>Thêm vài món bạn thích rồi quay lại đây để thanh toán.</p>
+            <a class="btn" href="/products">Xem sản phẩm</a>
+        </div>
+    }
+    else
+    {
+        <div class="split">
+            <div class="panel">
+                @if (available.Count > 1)
+                {
+                    <form method="post" action="/cart/select" asp-antiforgery="true" data-autosubmit style="margin-bottom:16px">
+                        @foreach (var i in available) { <input type="hidden" name="itemIds" value="@i.Id" /> }
+                        <label class="check"><input type="checkbox" name="selected" value="true" @(allSelected ? "checked" : "") /> Chọn tất cả</label>
+                        <button class="btn btn--small btn--ghost" type="submit" data-hide-with-js>Cập nhật</button>
+                    </form>
+                }
+                <div class="lines">
+                    @foreach (var item in Model.Items)
+                    {
+                        <div class="line @(item.IsAvailable ? "" : "line--off")">
+                            <form method="post" action="/cart/select" asp-antiforgery="true" data-autosubmit>
+                                <input type="hidden" name="itemIds" value="@item.Id" />
+                                <label class="check">
+                                    <input type="checkbox" name="selected" value="true" @(item.IsSelected && item.IsAvailable ? "checked" : "") @(item.IsAvailable ? "" : "disabled") aria-label="Chọn @item.ProductName để thanh toán" />
+                                </label>
+                                <button class="btn btn--small btn--ghost" type="submit" data-hide-with-js>Lưu</button>
+                            </form>
+                            <a class="line__media" href="/products/@item.ProductSlug">
+                                <partial name="_Media" model='new MediaModel(item.ThumbnailUrl, item.ProductName, item.Color)' />
+                            </a>
+                            <div>
+                                <a href="/products/@item.ProductSlug" style="font-weight:600;text-decoration:none">@item.ProductName</a>
+                                <div class="muted small">@string.Join(" / ", new[] { item.Size, item.Color }.Where(x => x is not null))</div>
+                                <div class="price" style="margin-top:6px">
+                                    <span class="num" style="font-weight:700">@Display.Money(item.UnitPrice)</span>
+                                    @if (item.BasePrice > item.UnitPrice) { <span class="was">@Display.Money(item.BasePrice)</span> }
+                                </div>
+                                @if (!item.IsAvailable)
+                                {
+                                    <div class="stock-note stock-note--out">
+                                        @(item.UnavailableReason switch
+                                        {
+                                            "Hidden" => "Sản phẩm đã ngừng bán",
+                                            "OutOfStock" => "Đã hết hàng",
+                                            _ => $"Chỉ còn {item.StockQuantity} sản phẩm, hãy giảm số lượng",
+                                        })
+                                    </div>
+                                }
+                            </div>
+                            <div class="line__actions">
+                                <form method="post" action="/cart/items/@item.Id/quantity" asp-antiforgery="true" data-autosubmit class="row">
+                                    <div class="qty" data-qty>
+                                        <button type="button" data-step="-1" aria-label="Giảm số lượng">−</button>
+                                        <input name="quantity" type="number" min="1" max="@Math.Max(1, item.StockQuantity)" value="@item.Quantity" aria-label="Số lượng @item.ProductName" />
+                                        <button type="button" data-step="1" aria-label="Tăng số lượng">+</button>
+                                    </div>
+                                    <button class="btn btn--small btn--ghost" type="submit" data-hide-with-js>Lưu</button>
+                                </form>
+                                <strong class="num">@Display.Money(item.LineTotal)</strong>
+                                <form method="post" action="/cart/items/@item.Id/remove" asp-antiforgery="true">
+                                    <button class="linkbtn linkbtn--danger small" type="submit">Xóa</button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <aside class="panel">
+                <h3>Tạm tính</h3>
+                <div class="summary">
+                    <div><span>Đã chọn</span><span>@Model.SelectedCount sản phẩm</span></div>
+                    <div class="total"><span>Tạm tính</span><span>@Display.Money(Model.SelectedSubtotal)</span></div>
+                </div>
+                <p class="small muted" style="margin:12px 0 16px">Phí giao hàng và mã giảm giá được tính ở bước thanh toán.</p>
+                @if (Model.SelectedCount > 0)
+                {
+                    <a class="btn btn--block" href="/checkout">Thanh toán</a>
+                }
+                else
+                {
+                    <button class="btn btn--block" type="button" disabled>Chọn sản phẩm để thanh toán</button>
+                }
+                @if (User.Identity?.IsAuthenticated != true)
+                {
+                    <p class="small muted" style="margin-top:12px">Bạn sẽ đăng nhập trước khi đặt hàng. Giỏ hàng hiện tại được giữ nguyên.</p>
+                }
+            </aside>
+        </div>
+    }
+</div>

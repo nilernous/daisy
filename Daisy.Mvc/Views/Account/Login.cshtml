@@ -1,0 +1,32 @@
+@model LoginForm
+
+<div class="wrap">
+    <div class="auth">
+        <div class="panel stack" style="--stack:20px">
+            <div>
+                <h1 style="font-size:var(--fs-2xl)">Đăng nhập</h1>
+                <p class="muted" style="margin:0">Giỏ hàng bạn đang có sẽ được giữ lại sau khi đăng nhập.</p>
+            </div>
+            <form method="post" action="/account/login" asp-antiforgery="true" class="stack" style="--stack:16px" novalidate>
+                <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+                <input type="hidden" asp-for="ReturnUrl" />
+                <div class="field">
+                    <label asp-for="Email">Email</label>
+                    <input asp-for="Email" type="email" autocomplete="email" autofocus />
+                    <span asp-validation-for="Email" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Password">Mật khẩu</label>
+                    <input asp-for="Password" type="password" autocomplete="current-password" />
+                    <span asp-validation-for="Password" class="field-error"></span>
+                </div>
+                <div class="row row--between">
+                    <label class="check"><input asp-for="Remember" /> Ghi nhớ đăng nhập</label>
+                    <a class="small" href="/account/forgot-password">Quên mật khẩu?</a>
+                </div>
+                <button class="btn btn--block" type="submit">Đăng nhập</button>
+            </form>
+            <p class="small" style="margin:0">Chưa có tài khoản? <a href="/account/register?returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Tạo tài khoản</a></p>
+        </div>
+    </div>
+</div>

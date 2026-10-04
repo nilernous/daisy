@@ -1,0 +1,78 @@
+@model CategoriesViewModel
+@{
+    var rows = Model.Tree.SelectMany(n => n.Flatten()).ToList();
+}
+
+<div class="admin__head">
+    <h1>Danh mục</h1>
+</div>
+
+<div class="split" style="grid-template-columns:minmax(0,1fr) 340px">
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Tên</th><th>Slug</th><th class="num">Thứ tự</th><th class="num">Sản phẩm</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var (node, depth) in rows)
+                {
+                    <tr>
+                        <td><span class="tree-indent" style="--depth:@depth"></span>@(depth > 0 ? "└ " : "")<strong>@node.Name</strong></td>
+                        <td class="muted">@node.Slug</td>
+                        <td class="num">@node.SortOrder</td>
+                        <td class="num">@node.ProductCount</td>
+                        <td>@if (node.IsActive) { <span class="pill pill--good">Đang hiện</span> } else { <span class="pill pill--muted">Đang ẩn</span> }</td>
+                        <td>
+                            <div class="actions-cell">
+                                <a class="btn btn--small btn--ghost" href="/admin/categories?edit=@node.Id">Sửa</a>
+                                <form method="post" action="/admin/categories/visibility/@node.Id" asp-antiforgery="true" class="inline-form">
+                                    <input type="hidden" name="isActive" value="@((!node.IsActive).ToString().ToLowerInvariant())" />
+                                    <button class="btn btn--small btn--ghost" type="submit">@(node.IsActive ? "Ẩn" : "Hiện")</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <aside class="panel">
+        <h3>@(Model.EditingId is null ? "Thêm danh mục" : "Sửa danh mục")</h3>
+        <form method="post" action="/admin/categories/save/@Model.EditingId" asp-antiforgery="true" class="stack" style="--stack:14px" novalidate>
+            <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+            <div class="field">
+                <label asp-for="Form.Name">Tên</label>
+                <input asp-for="Form.Name" data-slug-source />
+                <span asp-validation-for="Form.Name" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Form.Slug">Slug</label>
+                <input asp-for="Form.Slug" data-slug-target />
+                <span class="hint">Dùng trong đường dẫn, ví dụ nam-ao-thun.</span>
+                <span asp-validation-for="Form.Slug" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Form.ParentCategoryId">Thuộc danh mục</label>
+                <select asp-for="Form.ParentCategoryId">
+                    <option value="">Không có (danh mục gốc)</option>
+                    @foreach (var (node, depth) in rows.Where(r => r.Node.Id != Model.EditingId))
+                    {
+                        <option value="@node.Id">@(new string('—', depth)) @node.Name</option>
+                    }
+                </select>
+                <span asp-validation-for="Form.ParentCategoryId" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Form.SortOrder">Thứ tự hiển thị</label>
+                <input asp-for="Form.SortOrder" type="number" min="0" />
+            </div>
+            <div class="field">
+                <label asp-for="Form.ImageUrl">Ảnh (URL, không bắt buộc)</label>
+                <input asp-for="Form.ImageUrl" />
+            </div>
+            <div class="row">
+                <button class="btn" type="submit">@(Model.EditingId is null ? "Thêm danh mục" : "Lưu")</button>
+                @if (Model.EditingId is not null) { <a class="btn btn--ghost" href="/admin/categories">Hủy</a> }
+            </div>
+        </form>
+    </aside>
+</div>

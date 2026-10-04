@@ -1,0 +1,18 @@
+@model AddressForm
+
+<div class="wrap page">
+    <div class="auth" style="max-width:640px">
+        <div class="panel stack" style="--stack:16px">
+            <div class="crumbs"><a href="/profile">Hồ sơ của tôi</a> / Sửa địa chỉ</div>
+            <h1 style="font-size:var(--fs-2xl);margin:0">Sửa địa chỉ</h1>
+            <p class="small muted" style="margin:0">Đơn hàng đã đặt vẫn giữ địa chỉ cũ.</p>
+            <form method="post" action="/profile/addresses/@ViewData["AddressId"]/edit" asp-antiforgery="true" class="stack" style="--stack:14px" novalidate>
+                <partial name="_AddressFields" model="Model" />
+                <div class="row">
+                    <button class="btn" type="submit">Lưu địa chỉ</button>
+                    <a class="btn btn--ghost" href="/profile">Hủy</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

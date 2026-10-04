@@ -1,0 +1,13 @@
+@model MediaModel
+@{
+    var url = Media.For(Model.Url);
+    var color = Swatch.For(Model.ColorName, Model.ColorHex, Model.Name);
+}
+@if (url is not null)
+{
+    <img src="@url" alt="@Model.Name" loading="lazy" />
+}
+else
+{
+    <div class="ph @(Swatch.IsDark(color) ? "ph--dark" : "")" style="--swatch: @color" role="img" aria-label="@Model.Name">@Display.Initials(Model.Name)</div>
+}

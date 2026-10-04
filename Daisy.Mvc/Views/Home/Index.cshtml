@@ -1,0 +1,58 @@
+@model HomeViewModel
+
+<div class="wrap">
+    @if (Model.FlashSale.Count > 0 && Model.FlashSaleEndsAt is not null)
+    {
+        <section class="hero" aria-labelledby="sale-title">
+            <div>
+                <h1 id="sale-title">Flash sale, giá giảm đến khi đồng hồ về 0</h1>
+                <p>@Model.FlashSale.Count món đang giảm giá. Số lượng mỗi size có hạn.</p>
+                <p class="clock" data-deadline="@Model.FlashSaleEndsAt.Value.ToString("o")" aria-live="off">
+                    <small>Kết thúc sau</small><span data-clock>--:--:--</span>
+                </p>
+                <a class="btn" style="background:#fff;color:var(--ink);border-color:#fff" href="/products?sale=true">Xem tất cả món giảm giá</a>
+            </div>
+            <div class="hero__picks" style="--picks:@Math.Min(3, Model.FlashSale.Count)">
+                @foreach (var p in Model.FlashSale)
+                {
+                    <a class="hero__pick" href="/products/@p.Slug">
+                        <div class="tile__media">
+                            <partial name="_Media" model='new MediaModel(p.ThumbnailUrl, p.Name, p.Variants?.FirstOrDefault()?.Color)' />
+                            <span class="tile__tag"><partial name="_Price" model='new PriceModel(p.EffectivePrice)' /></span>
+                        </div>
+                        <span>@p.Name</span>
+                        <span class="hero__pick-price">@Display.Money(p.EffectivePrice)</span>
+                    </a>
+                }
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="hero hero--quiet">
+            <div>
+                <h1>Đồ mặc hằng ngày, chọn nhanh, mặc lâu</h1>
+                <p>Áo thun, sơ mi, quần và váy may vừa vặn. Giao hàng toàn quốc, thanh toán khi nhận hàng hoặc chuyển khoản VietQR.</p>
+                <a class="btn" href="/products">Xem sản phẩm</a>
+            </div>
+        </section>
+    }
+
+    @if (Model.Categories.Count > 0)
+    {
+        <nav class="chips" style="margin-top:24px" aria-label="Danh mục">
+            @foreach (var c in Model.Categories)
+            {
+                <a class="chip" href="/products?category=@c.Slug">@c.Name</a>
+                @foreach (var child in c.Children)
+                {
+                    <a class="chip" href="/products?category=@child.Slug">@child.Name</a>
+                }
+            }
+        </nav>
+    }
+
+    @await Html.PartialAsync("_Collection", ("Nổi bật", "/products", Model.Featured))
+    @await Html.PartialAsync("_Collection", ("Hàng mới về", "/products?sort=newest", Model.NewArrivals))
+    @await Html.PartialAsync("_Collection", ("Bán chạy", "/products?sort=best", Model.BestSellers))
+</div>

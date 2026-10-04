@@ -1,0 +1,232 @@
+@model ProductEditViewModel
+@{
+    var p = Model.Product;
+    var categories = Model.Categories.SelectMany(c => c.Flatten()).ToList();
+    (string Value, string Label)[] genders = [("", "Không chọn"), ("Men", "Nam"), ("Women", "Nữ"), ("Unisex", "Unisex"), ("Kids", "Trẻ em")];
+    var editUrl = p is null ? "" : $"/admin/products/edit/{p.Id}";
+}
+
+<div class="admin__head">
+    <div>
+        <div class="crumbs"><a href="/admin/products">Sản phẩm</a> / @(p?.Name ?? "Thêm mới")</div>
+        <h1>@(p?.Name ?? "Thêm sản phẩm")</h1>
+        @if (p is not null)
+        {
+            <div class="row" style="margin-top:6px">
+                @if (p.IsActive) { <span class="pill pill--good">Đang bán</span> } else { <span class="pill pill--muted">Đang ẩn</span> }
+                @if (p.IsFeatured) { <span class="pill pill--info">Nổi bật</span> }
+                @if (p.IsOnSale) { <span class="pill pill--wait">Đang giảm giá</span> }
+                <span class="muted small">Đã bán @p.SoldCount, @p.ReviewCount đánh giá</span>
+            </div>
+        }
+    </div>
+    @if (p is not null)
+    {
+        <div class="row">
+            <a class="btn btn--ghost" href="/products/@p.Slug" target="_blank" rel="noopener">Xem trên cửa hàng</a>
+            <form method="post" action="/admin/products/featured/@p.Id" asp-antiforgery="true" class="inline-form">
+                <input type="hidden" name="isFeatured" value="@((!p.IsFeatured).ToString().ToLowerInvariant())" />
+                <button class="btn btn--ghost" type="submit">@(p.IsFeatured ? "Bỏ nổi bật" : "Đưa vào nổi bật")</button>
+            </form>
+            <form method="post" action="/admin/products/visibility/@p.Id" asp-antiforgery="true" class="inline-form">
+                <input type="hidden" name="isActive" value="@((!p.IsActive).ToString().ToLowerInvariant())" />
+                <button class="btn @(p.IsActive ? "btn--danger" : "")" type="submit">@(p.IsActive ? "Ẩn sản phẩm" : "Mở bán lại")</button>
+            </form>
+        </div>
+    }
+</div>
+
+<div class="stack" style="--stack:24px">
+    <section class="panel">
+        <h2 style="font-size:var(--fs-l)">Thông tin sản phẩm</h2>
+        <form method="post" action="@(p is null ? "/admin/products/create" : editUrl)" asp-antiforgery="true" class="stack" style="--stack:14px" novalidate>
+            <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+            <div class="form-grid">
+                <div class="field">
+                    <label asp-for="Form.Name">Tên sản phẩm</label>
+                    <input asp-for="Form.Name" data-slug-source />
+                    <span asp-validation-for="Form.Name" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Form.Slug">Slug</label>
+                    <input asp-for="Form.Slug" data-slug-target />
+                    <span asp-validation-for="Form.Slug" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Form.CategoryId">Danh mục</label>
+                    <select asp-for="Form.CategoryId">
+                        <option value="0">Chọn danh mục</option>
+                        @foreach (var (node, depth) in categories) { <option value="@node.Id">@(new string('—', depth)) @node.Name</option> }
+                    </select>
+                    <span asp-validation-for="Form.CategoryId" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Form.BasePrice">Giá gốc (đ)</label>
+                    <input asp-for="Form.BasePrice" asp-format="{0:0}" type="number" min="0" step="1000" />
+                    <span asp-validation-for="Form.BasePrice" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Form.Brand">Thương hiệu</label>
+                    <input asp-for="Form.Brand" />
+                </div>
+                <div class="field">
+                    <label asp-for="Form.Material">Chất liệu</label>
+                    <input asp-for="Form.Material" />
+                </div>
+                <div class="field">
+                    <label asp-for="Form.GenderTarget">Dành cho</label>
+                    <select asp-for="Form.GenderTarget">
+                        @foreach (var g in genders) { <option value="@g.Value">@g.Label</option> }
+                    </select>
+                </div>
+                <div class="field span-2">
+                    <label asp-for="Form.Description">Mô tả</label>
+                    <textarea asp-for="Form.Description" rows="4"></textarea>
+                </div>
+            </div>
+            <div><button class="btn" type="submit">@(p is null ? "Tạo sản phẩm" : "Lưu thông tin")</button></div>
+        </form>
+    </section>
+
+    @if (p is not null)
+    {
+        <section class="panel" id="variants">
+            <h2 style="font-size:var(--fs-l)">Biến thể (size, màu, tồn kho)</h2>
+            @if (p.Variants.Count == 0)
+            {
+                <p class="muted">Chưa có biến thể nào. Sản phẩm chỉ hiện trên cửa hàng khi có ít nhất một biến thể đang bán.</p>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead><tr><th>SKU</th><th>Size</th><th>Màu</th><th>Mã màu</th><th class="num">Phụ thu</th><th class="num">Ngưỡng báo</th><th></th><th>Tồn kho</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var v in p.Variants)
+                            {
+                                var fid = $"variant-{v.Id}";
+                                <tr class="variant-row" style="@(v.IsActive ? "" : "opacity:.55")">
+                                    <td><input class="input" form="@fid" name="Sku" value="@v.Sku" required style="min-width:130px" /></td>
+                                    <td><input class="input" form="@fid" name="Size" value="@v.Size" style="width:64px" /></td>
+                                    <td><input class="input" form="@fid" name="Color" value="@v.Color" style="width:110px" /></td>
+                                    <td><input class="input" form="@fid" name="ColorHex" value="@v.ColorHex" style="width:96px" placeholder="#000000" /></td>
+                                    <td><input class="input" form="@fid" name="ExtraPrice" type="number" min="0" step="1000" value="@v.ExtraPrice.ToString("0")" style="width:100px" /></td>
+                                    <td><input class="input" form="@fid" name="LowStockThreshold" type="number" min="0" value="@v.LowStockThreshold" style="width:72px" /></td>
+                                    <td>
+                                        <form id="@fid" method="post" action="/admin/products/updatevariant/@p.Id" asp-antiforgery="true">
+                                            <input type="hidden" name="variantId" value="@v.Id" />
+                                            <button class="btn btn--small btn--ghost" type="submit">Lưu</button>
+                                        </form>
+                                    </td>
+                                    <td>
+                                        <form method="post" action="/admin/inventory/updatestock" asp-antiforgery="true" class="row" style="flex-wrap:nowrap;gap:6px">
+                                            <input type="hidden" name="variantId" value="@v.Id" />
+                                            <input type="hidden" name="expectedCurrentStock" value="@v.StockQuantity" />
+                                            <input type="hidden" name="returnUrl" value="@editUrl#variants" />
+                                            <input class="input stock-input" name="stockQuantity" type="number" min="0" value="@v.StockQuantity" aria-label="Tồn kho @v.Sku" />
+                                            <button class="btn btn--small btn--ghost" type="submit">Đặt</button>
+                                        </form>
+                                        @if (v.StockQuantity <= v.LowStockThreshold) { <span class="pill pill--wait" style="margin-top:4px">Sắp hết</span> }
+                                    </td>
+                                    <td>
+                                        <form method="post" action="/admin/products/variantvisibility/@p.Id" asp-antiforgery="true">
+                                            <input type="hidden" name="variantId" value="@v.Id" />
+                                            <input type="hidden" name="isActive" value="@((!v.IsActive).ToString().ToLowerInvariant())" />
+                                            <button class="linkbtn small @(v.IsActive ? "linkbtn--danger" : "")" type="submit">@(v.IsActive ? "Ẩn" : "Bán lại")</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <h3 style="margin-top:20px">Thêm biến thể</h3>
+            <form method="post" action="/admin/products/addvariant/@p.Id" asp-antiforgery="true" class="filterbar" novalidate>
+                <div class="field"><label for="nv-sku">SKU</label><input id="nv-sku" name="NewVariant.Sku" value="@Model.NewVariant.Sku" required /></div>
+                <div class="field" style="min-width:80px"><label for="nv-size">Size</label><input id="nv-size" name="NewVariant.Size" /></div>
+                <div class="field"><label for="nv-color">Màu</label><input id="nv-color" name="NewVariant.Color" /></div>
+                <div class="field" style="min-width:110px"><label for="nv-hex">Mã màu</label><input id="nv-hex" name="NewVariant.ColorHex" placeholder="#000000" /></div>
+                <div class="field" style="min-width:110px"><label for="nv-extra">Phụ thu (đ)</label><input id="nv-extra" name="NewVariant.ExtraPrice" type="number" min="0" step="1000" value="0" /></div>
+                <div class="field" style="min-width:100px"><label for="nv-stock">Tồn kho</label><input id="nv-stock" name="NewVariant.StockQuantity" type="number" min="0" value="0" /></div>
+                <div class="field" style="min-width:100px"><label for="nv-low">Ngưỡng báo</label><input id="nv-low" name="NewVariant.LowStockThreshold" type="number" min="0" value="5" /></div>
+                <button class="btn" type="submit">Thêm</button>
+            </form>
+        </section>
+
+        <section class="panel" id="images">
+            <h2 style="font-size:var(--fs-l)">Ảnh sản phẩm</h2>
+            <form method="post" action="/admin/products/uploadimages/@p.Id" asp-antiforgery="true" enctype="multipart/form-data" class="row" style="margin-bottom:16px">
+                <input name="files" type="file" accept="image/jpeg,image/png,image/webp" multiple required aria-label="Chọn ảnh" />
+                <button class="btn" type="submit">Tải lên</button>
+                <span class="small muted">JPEG, PNG hoặc WebP, tối đa 5 MB mỗi ảnh, 10 ảnh mỗi lần.</span>
+            </form>
+            @if (p.Images.Count == 0)
+            {
+                <p class="muted">Chưa có ảnh. Cửa hàng đang hiển thị ô màu thay cho ảnh.</p>
+            }
+            <div class="images-grid">
+                @{ var ordered = p.Images.OrderBy(i => i.SortOrder).ToList(); }
+                @for (var i = 0; i < ordered.Count; i++)
+                {
+                    var img = ordered[i];
+                    <div class="image-card">
+                        <img src="@Media.For(img.Url)" alt="Ảnh @(i + 1) của @p.Name" loading="lazy" />
+                        <div class="image-card__body">
+                            @if (img.IsThumbnail)
+                            {
+                                <span class="pill pill--info">Ảnh đại diện</span>
+                            }
+                            else
+                            {
+                                <form method="post" action="/admin/products/thumbnail/@p.Id" asp-antiforgery="true"><input type="hidden" name="imageId" value="@img.Id" /><button class="linkbtn" type="submit">Đặt làm ảnh đại diện</button></form>
+                            }
+                            <form method="post" action="/admin/products/imagevariant/@p.Id" asp-antiforgery="true" class="row" style="gap:6px;flex-wrap:nowrap">
+                                <input type="hidden" name="imageId" value="@img.Id" />
+                                <select class="input" name="variantId" aria-label="Gắn ảnh với biến thể" style="padding:4px 6px;font-size:var(--fs-xs)">
+                                    <option value="">Mọi màu</option>
+                                    @foreach (var v in p.Variants) { <option value="@v.Id" selected="@(img.VariantId == v.Id)">@v.Color @v.Size</option> }
+                                </select>
+                                <button class="linkbtn" type="submit">Gắn</button>
+                            </form>
+                            <div class="row" style="gap:10px">
+                                @if (i > 0) { <form method="post" action="/admin/products/moveimage/@p.Id" asp-antiforgery="true"><input type="hidden" name="imageId" value="@img.Id" /><input type="hidden" name="direction" value="-1" /><button class="linkbtn" type="submit">Lên trước</button></form> }
+                                @if (i < ordered.Count - 1) { <form method="post" action="/admin/products/moveimage/@p.Id" asp-antiforgery="true"><input type="hidden" name="imageId" value="@img.Id" /><input type="hidden" name="direction" value="1" /><button class="linkbtn" type="submit">Ra sau</button></form> }
+                                <details class="right">
+                                    <summary class="linkbtn linkbtn--danger">Xóa</summary>
+                                    <form method="post" action="/admin/products/deleteimage/@p.Id" asp-antiforgery="true" style="margin-top:6px"><input type="hidden" name="imageId" value="@img.Id" /><button class="btn btn--danger btn--small" type="submit">Xóa ảnh</button></form>
+                                </details>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="panel" id="sale">
+            <h2 style="font-size:var(--fs-l)">Giá khuyến mãi</h2>
+            @if (!Model.IsAdmin)
+            {
+                <p class="muted">Chỉ Quản trị viên được đặt giá khuyến mãi.@(p.SalePrice is null ? "" : $" Hiện tại: {Display.Money(p.SalePrice)} từ {Display.DateTime(p.SaleStartAt)} đến {Display.DateTime(p.SaleEndAt)}.")</p>
+            }
+            else
+            {
+                <p class="small muted">Giá khuyến mãi phải từ 0 đến giá gốc @Display.Money(p.BasePrice). Bỏ trống thời gian bắt đầu để áp dụng ngay, bỏ trống thời gian kết thúc để không giới hạn.</p>
+                <form method="post" action="/admin/products/sale/@p.Id" asp-antiforgery="true" class="filterbar">
+                    <div class="field"><label for="salePrice">Giá khuyến mãi (đ)</label><input id="salePrice" name="SalePrice" type="number" min="0" max="@p.BasePrice.ToString("0")" step="1000" value="@(Model.Sale.SalePrice > 0 ? Model.Sale.SalePrice.ToString("0") : "")" required /></div>
+                    <div class="field"><label for="startAt">Bắt đầu</label><input id="startAt" name="StartAt" type="datetime-local" value="@Model.Sale.StartAt?.ToString("yyyy-MM-dd'T'HH:mm")" /></div>
+                    <div class="field"><label for="endAt">Kết thúc</label><input id="endAt" name="EndAt" type="datetime-local" value="@Model.Sale.EndAt?.ToString("yyyy-MM-dd'T'HH:mm")" /></div>
+                    <button class="btn" type="submit">Lưu giá khuyến mãi</button>
+                </form>
+                @if (p.SalePrice is not null)
+                {
+                    <form method="post" action="/admin/products/sale/@p.Id" asp-antiforgery="true">
+                        <input type="hidden" name="clear" value="true" />
+                        <button class="linkbtn linkbtn--danger" type="submit">Bỏ giá khuyến mãi</button>
+                    </form>
+                }
+            }
+        </section>
+    }
+</div>

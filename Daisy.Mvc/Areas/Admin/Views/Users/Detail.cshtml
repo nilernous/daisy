@@ -1,0 +1,96 @@
+@model UserDetail
+@{
+    var isSelf = User.UserId() == Model.Id;
+}
+
+<div class="admin__head">
+    <div>
+        <div class="crumbs"><a href="/admin/users">Người dùng</a> / @Model.FullName</div>
+        <h1>@Model.FullName</h1>
+        <div class="row" style="margin-top:6px">
+            <span class="pill pill--info">@Display.Label(Model.Role)</span>
+            <span class="pill @(Model.Status == UserStatus.Active ? "pill--good" : "pill--bad")">@Display.Label(Model.Status)</span>
+            <span class="muted small">Tạo ngày @Display.Date(Model.CreatedAt)</span>
+        </div>
+    </div>
+</div>
+
+<div class="split">
+    <div class="stack" style="--stack:20px">
+        <div class="kpis" style="grid-template-columns:repeat(2,minmax(0,1fr));margin:0">
+            <div class="kpi"><span>Số đơn đã đặt</span><b>@Model.OrderCount</b></div>
+            <div class="kpi"><span>Chi tiêu (đơn hoàn thành)</span><b>@Display.Money(Model.CompletedSpent)</b></div>
+        </div>
+        <section class="panel">
+            <h2 style="font-size:var(--fs-l)">Đơn hàng</h2>
+            @if (Model.Orders.Items.Count == 0)
+            {
+                <p class="muted">Chưa có đơn hàng.</p>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead><tr><th>Mã đơn</th><th>Ngày đặt</th><th>Trạng thái</th><th class="num">Tổng tiền</th></tr></thead>
+                        <tbody>
+                            @foreach (var o in Model.Orders.Items)
+                            {
+                                <tr>
+                                    <td><a class="num" href="/admin/orders/detail/@o.Id">@o.OrderCode</a></td>
+                                    <td>@Display.DateTime(o.CreatedAt)</td>
+                                    <td><partial name="_Pills" model="(o.OrderStatus, o.PaymentStatus)" /></td>
+                                    <td class="num">@Display.Money(o.TotalAmount)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <partial name="_Pager" model='new PagerModel(Model.Orders.Page, Model.Orders.TotalPages, n => $"/admin/users/detail/{Model.Id}?page={n}")' />
+            }
+        </section>
+    </div>
+
+    <aside class="stack" style="--stack:20px">
+        <section class="panel">
+            <h3>Thông tin</h3>
+            <dl class="specs">
+                <dt>Email</dt><dd>@Model.Email</dd>
+                <dt>Điện thoại</dt><dd class="num">@(Model.Phone ?? "—")</dd>
+                <dt>Giới tính</dt><dd>@Display.Gender(Model.Gender)</dd>
+                <dt>Ngày sinh</dt><dd>@Display.Date(Model.DateOfBirth)</dd>
+            </dl>
+        </section>
+
+        @if (isSelf)
+        {
+            <p class="small muted">Đây là tài khoản của bạn. Bạn không thể tự khóa hoặc đổi vai trò của mình.</p>
+        }
+        else
+        {
+            <section class="panel stack" style="--stack:14px">
+                <h3 style="margin:0">Vai trò</h3>
+                <form method="post" action="/admin/users/role/@Model.Id" asp-antiforgery="true" class="row">
+                    <select class="input" name="role" aria-label="Vai trò" style="width:auto">
+                        @foreach (var r in Enum.GetValues<UserRole>()) { <option value="@r" selected="@(Model.Role == r)">@Display.Label(r)</option> }
+                    </select>
+                    <button class="btn btn--small btn--ghost" type="submit">Đổi vai trò</button>
+                </form>
+                <p class="small muted" style="margin:0">Vai trò mới có hiệu lực khi phiên đăng nhập của người dùng được làm mới (tối đa 15 phút).</p>
+            </section>
+            <section class="panel">
+                <form method="post" action="/admin/users/status/@Model.Id" asp-antiforgery="true">
+                    <input type="hidden" name="status" value="@(Model.Status == UserStatus.Active ? "Locked" : "Active")" />
+                    @if (Model.Status == UserStatus.Active)
+                    {
+                        <p class="small" style="margin:0 0 10px">Khóa tài khoản sẽ đăng xuất người dùng và chặn đăng nhập lại.</p>
+                        <button class="btn btn--danger btn--small" type="submit">Khóa tài khoản</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn--small" type="submit">Mở khóa tài khoản</button>
+                    }
+                </form>
+            </section>
+        }
+    </aside>
+</div>

@@ -6,7 +6,7 @@
 
 The system separates the user interface, application logic, domain model, and infrastructure concerns into independent projects.
 
-The solution consists of five main projects:
+The solution consists of five main projects and one test project:
 
 ```text
 Daisy/
@@ -15,7 +15,9 @@ Daisy/
 ├── Daisy.Infrastructure/
 ├── Daisy.Api/
 ├── Daisy.Mvc/
-└── Daisy.sln
+├── Daisy.Tests/            (integration tests)
+├── infra/database/         (DaisyDB.sql schema, DaisySeed.sql development data)
+└── Daisy.slnx
 ```
 
 The architecture follows this dependency direction:
@@ -71,9 +73,14 @@ API
 | Password hashing | ASP.NET Core Identity `PasswordHasher<T>` (PBKDF2), without the full Identity stack | `Daisy.Infrastructure` |
 | Validation | FluentValidation | `Daisy.Application` |
 | DTO mapping | Manual mapping and LINQ projections (no AutoMapper) | `Daisy.Application` |
-| Payment | VietQR bank transfer + bank webhook service | `Daisy.Infrastructure` |
-| Email | MailKit (SMTP) | `Daisy.Infrastructure` |
+| Payment | VietQR bank transfer + SePay bank webhook service (a mock provider in development) | `Daisy.Infrastructure` |
+| Email | MailKit (SMTP); emails are written to the log when no SMTP host is configured | `Daisy.Infrastructure` |
 | File storage | Local file system behind `IStorageService` | `Daisy.Infrastructure` |
+| Background work | `BackgroundService` hosted in the API process | `Daisy.Infrastructure` |
+| Rate limiting | ASP.NET Core rate limiter (fixed window per IP) | `Daisy.Api` |
+| Secrets | `dotnet user-secrets` in development, environment variables elsewhere | `Daisy.Api` |
+| Web client | ASP.NET Core MVC (Razor views, Vietnamese UI), cookie authentication holding the API tokens | `Daisy.Mvc` |
+| Tests | xUnit + `WebApplicationFactory`, against a throw-away SQL Server LocalDB database | `Daisy.Tests` |
 
 ---
 
@@ -228,10 +235,9 @@ Structure:
 
 ```text
 Daisy.Application/
-├── Features/
-├── DTOs/
+├── Features/      (services, DTOs and validators per feature, see §6)
 ├── Interfaces/
-└── Common/
+└── Common/        (exceptions, paging, options, Vietnam time)
 ```
 
 ---
@@ -379,8 +385,8 @@ The Application project knows only `IPaymentGateway`.
 It does not know whether the implementation uses:
 
 ```text
-VietQR + a bank webhook service (e.g. SePay, Casso, payOS)
-Mock Payment (development / demo)
+SePayPaymentGateway   VietQR + the SePay bank webhook service (VietQr:Provider = SePay)
+MockPaymentGateway    same QR and webhook format, plus simulated transfers (VietQr:Provider = Mock, development)
 ```
 
 ---
@@ -411,9 +417,12 @@ Database access is implemented using **Entity Framework Core**.
 ```text
 Persistence/
 ├── DaisyDbContext.cs
+├── DaisyDbContextFactory.cs   (design-time factory for dotnet-ef)
 ├── Configurations/
 └── Migrations/
 ```
+
+`infra/database/DaisyDB.sql` remains the documented schema. The EF Core model maps the same names, constraints and indexes, so the database created by the `InitialCreate` migration is identical to the one created by the script (checked by comparing columns, defaults, indexes, check constraints and foreign keys). Either can be used to create a development database; `infra/database/DaisySeed.sql` then loads the development data (Admin, Staff and Customer accounts, catalog, vouchers, sample orders).
 
 Entity configurations are separated from the DbContext.
 
@@ -786,12 +795,15 @@ Infrastructure structure:
 
 ```text
 Payments/
-├── VietQrPaymentGateway.cs
+├── SePayPaymentGateway.cs
+├── MockPaymentGateway.cs
 └── VietQrOptions.cs
 
 BackgroundJobs/
 └── UnpaidOrderExpiryJob.cs
 ```
+
+SePay calls the webhook with `Authorization: Apikey {WebhookApiKey}`. The mock gateway accepts the same payload, so in development a transfer can be simulated (`POST /api/dev/payments/simulate-transfer`) and still goes through the real verification and matching code.
 
 `VietQrOptions` holds the receiving account, webhook and deadline settings:
 
@@ -1176,12 +1188,18 @@ It does not access Entity Framework Core or SQL Server directly.
 
 ```text
 Daisy.Mvc/
-├── Controllers/
-├── Services/
+├── Areas/Admin/      (admin panel for Staff and Admin)
+├── Controllers/      (storefront)
+├── Infrastructure/   (auth cookie, cart session, error display)
+├── Models/Api/       (copies of the API DTOs; MVC does not reference Daisy.Application)
+├── Services/         (ApiClient and typed API services)
+├── ViewComponents/
 ├── ViewModels/
 ├── Views/
 └── wwwroot/
 ```
+
+The user interface is in Vietnamese. API error codes are mapped to Vietnamese messages in the client; the API's own messages stay in English.
 
 Communication:
 
@@ -1431,7 +1449,7 @@ Daisy/
 │   └── Common/
 │
 ├── Daisy.Application/
-│   ├── Features/
+│   ├── Features/          (Service, Dtos and Validator per feature)
 │   │   ├── Auth/
 │   │   ├── Profile/
 │   │   ├── Categories/
@@ -1447,7 +1465,6 @@ Daisy/
 │   │   ├── Users/
 │   │   └── Dashboard/
 │   │
-│   ├── DTOs/
 │   ├── Interfaces/
 │   └── Common/
 │
@@ -1459,27 +1476,37 @@ Daisy/
 │   │
 │   ├── Authentication/
 │   ├── Payments/
-│   │   ├── VietQrPaymentGateway.cs
+│   │   ├── SePayPaymentGateway.cs
+│   │   ├── MockPaymentGateway.cs
 │   │   └── VietQrOptions.cs
 │   ├── BackgroundJobs/
 │   │   └── UnpaidOrderExpiryJob.cs
 │   ├── Storage/
 │   └── Email/
 │
-├── Daisy.API/
+├── Daisy.Api/
 │   ├── Controllers/
+│   │   └── Admin/
 │   ├── OData/
 │   ├── Middleware/
+│   ├── Infrastructure/   (error body, JSON, current user, policies)
 │   └── Program.cs
 │
-├── Daisy.MVC/
+├── Daisy.Mvc/
+│   ├── Areas/Admin/
 │   ├── Controllers/
 │   ├── Services/
 │   ├── ViewModels/
 │   ├── Views/
 │   └── wwwroot/
 │
-└── Daisy.sln
+├── Daisy.Tests/
+│
+├── infra/database/
+│   ├── DaisyDB.sql
+│   └── DaisySeed.sql
+│
+└── Daisy.slnx
 ```
 
 ---

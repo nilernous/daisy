@@ -1,0 +1,48 @@
+@model ColumnChartModel
+@{
+    var (max, step) = Model.Scale();
+    var id = "chart-" + Guid.NewGuid().ToString("N")[..8];
+    var labelEvery = Math.Max(1, (int)Math.Ceiling(Model.Points.Count / 8.0));
+}
+<figure class="chartcard" aria-labelledby="@id-title">
+    <figcaption class="row row--between">
+        <h3 id="@id-title" style="margin:0">@Model.Title</h3>
+        <button class="linkbtn small" type="button" data-toggle-table="@id-table">Xem dạng bảng</button>
+    </figcaption>
+    <div class="colchart" role="img" aria-label="@Model.Title, biểu đồ cột. Xem dạng bảng để đọc từng giá trị.">
+        <div class="colchart__grid" aria-hidden="true">
+            @for (var t = 4; t >= 0; t--)
+            {
+                <div class="colchart__tick" style="bottom:@(t * 25)%"><span>@Model.FormatTick(step * t)</span></div>
+            }
+        </div>
+        <div class="colchart__plot">
+            @foreach (var p in Model.Points)
+            {
+                var height = max == 0 ? 0 : (double)(p.Value / max * 100);
+                <div class="colchart__slot" tabindex="0" data-tip-value="@p.Display" data-tip-label="@p.Label" data-tip-detail="@p.Detail">
+                    <div class="colchart__bar @(p.Value == 0 ? "colchart__bar--zero" : "")" style="height:@height.ToString(System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                </div>
+            }
+        </div>
+        <div class="colchart__axis" aria-hidden="true">
+            @for (var i = 0; i < Model.Points.Count; i++)
+            {
+                <span>@(i % labelEvery == 0 ? Model.Points[i].Label : "")</span>
+            }
+        </div>
+    </div>
+    <div id="@id-table" hidden>
+        <div class="table-wrap" style="margin-top:12px;max-height:280px;overflow-y:auto">
+            <table class="table">
+                <thead><tr><th>Kỳ</th><th class="num">Giá trị</th>@if (Model.Points.Any(p => p.Detail is not null)) { <th class="num">Chi tiết</th> }</tr></thead>
+                <tbody>
+                    @foreach (var p in Model.Points)
+                    {
+                        <tr><td>@p.Label</td><td class="num">@p.Display</td>@if (p.Detail is not null) { <td class="num">@p.Detail</td> }</tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</figure>

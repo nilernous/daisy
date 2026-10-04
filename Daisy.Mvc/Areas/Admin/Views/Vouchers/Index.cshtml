@@ -1,0 +1,57 @@
+@model PagedResult<Voucher>
+@{
+    var state = ViewData["State"] as string;
+    (string? Value, string Label)[] tabs = [(null, "Tất cả"), ("Running", "Đang chạy"), ("Upcoming", "Sắp diễn ra"), ("Expired", "Đã hết hạn")];
+}
+
+<div class="admin__head">
+    <h1>Mã giảm giá</h1>
+    <a class="btn" href="/admin/vouchers/create">Tạo mã giảm giá</a>
+</div>
+
+<nav class="chips" style="margin-bottom:16px">
+    @foreach (var tab in tabs)
+    {
+        <a class="chip @(state == tab.Value ? "chip--on" : "")" href="/admin/vouchers@(tab.Value is null ? "" : $"?state={tab.Value}")">@tab.Label</a>
+    }
+</nav>
+
+@if (Model.Items.Count == 0)
+{
+    <div class="empty"><h2>Chưa có mã giảm giá</h2><p>Tạo mã để khách nhập khi thanh toán.</p><a class="btn" href="/admin/vouchers/create">Tạo mã giảm giá</a></div>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Mã</th><th>Ưu đãi</th><th class="num">Đơn tối thiểu</th><th class="num">Đã dùng</th><th>Thời gian</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var v in Model.Items)
+                {
+                    <tr>
+                        <td><strong class="num">@v.Code</strong><div class="muted">@v.Name</div></td>
+                        <td>@Display.Discount(v.DiscountType, v.DiscountValue, v.MaxDiscountAmount)</td>
+                        <td class="num">@Display.Money(v.MinOrderAmount)</td>
+                        <td class="num">@v.UsedCount@(v.UsageLimit is null ? "" : $" / {v.UsageLimit}")</td>
+                        <td class="small">@Display.DateTime(v.StartAt)<br />đến @Display.DateTime(v.EndAt)</td>
+                        <td>
+                            <span class="pill @(v.State == "Running" ? "pill--good" : v.State == "Upcoming" ? "pill--info" : "pill--muted")">@Display.VoucherState(v.State)</span>
+                            @if (!v.IsActive) { <span class="pill pill--bad">Đã tắt</span> }
+                        </td>
+                        <td>
+                            <div class="actions-cell">
+                                <a class="btn btn--small btn--ghost" href="/admin/vouchers/edit/@v.Id">Sửa</a>
+                                <a class="btn btn--small btn--ghost" href="/admin/vouchers/usage/@v.Id">Lượt dùng</a>
+                                <form method="post" action="/admin/vouchers/active/@v.Id" asp-antiforgery="true" class="inline-form">
+                                    <input type="hidden" name="isActive" value="@((!v.IsActive).ToString().ToLowerInvariant())" />
+                                    <button class="btn btn--small btn--ghost" type="submit">@(v.IsActive ? "Tắt" : "Bật")</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <partial name="_Pager" model='new PagerModel(Model.Page, Model.TotalPages, n => $"/admin/vouchers?page={n}{(state is null ? "" : $"&state={state}")}")' />
+}
