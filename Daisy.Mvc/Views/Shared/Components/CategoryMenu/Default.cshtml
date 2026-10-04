@@ -1,0 +1,20 @@
+@model IReadOnlyList<CategoryNode>
+<nav class="catnav" aria-label="Danh mục">
+    @foreach (var top in Model)
+    {
+        <div class="catnav__item">
+            <a class="catnav__link" href="/products?category=@top.Slug">@top.Name</a>
+            @if (top.Children.Count > 0)
+            {
+                <div class="catnav__menu">
+                    <a href="/products?category=@top.Slug">Tất cả @top.Name.ToLowerInvariant()</a>
+                    @foreach (var child in top.Children)
+                    {
+                        <a href="/products?category=@child.Slug">@child.Name</a>
+                    }
+                </div>
+            }
+        </div>
+    }
+    <div class="catnav__item"><a class="catnav__link" href="/products?sale=true">Đang giảm giá</a></div>
+</nav>

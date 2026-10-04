@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(ViewData["Title"] is string title ? $"{title} – Daisy" : "Daisy – Thời trang hằng ngày")</title>
+    <meta name="description" content="@(ViewData["Description"] ?? "Daisy – thời trang hằng ngày cho nam và nữ, thanh toán khi nhận hàng hoặc chuyển khoản VietQR.")" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="icon" href="~/favicon.svg" type="image/svg+xml" />
+</head>
+<body>
+    <header class="masthead">
+        <div class="wrap masthead__bar">
+            <a class="brand" href="/" aria-label="Daisy, trang chủ"><partial name="_DaisyMark" />daisy</a>
+            @await Component.InvokeAsync("CategoryMenu")
+            <form class="search" action="/products" method="get" role="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                <label class="sr-only" for="q">Tìm sản phẩm</label>
+                <input id="q" name="q" type="search" placeholder="Tìm áo, quần, váy…" value="@Context.Request.Query["q"]" />
+            </form>
+            <div class="actions">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    @if (User.IsInRole("Customer"))
+                    {
+                        <a class="icon-link" href="/wishlist" aria-label="Sản phẩm yêu thích">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" /></svg>
+                        </a>
+                    }
+                    <details class="menu">
+                        <summary class="icon-link">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
+                            <span class="label">@(User.Identity!.Name?.Split(' ').LastOrDefault())</span>
+                        </summary>
+                        <div class="menu__panel">
+                            <div class="menu__who">
+                                <strong>@User.Identity!.Name</strong>
+                                <div class="small muted">@User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value</div>
+                            </div>
+                            @if (User.IsStaffOrAdmin())
+                            {
+                                <a href="/admin">Trang quản trị</a>
+                            }
+                            @if (User.IsInRole("Customer"))
+                            {
+                                <a href="/orders">Đơn hàng của tôi</a>
+                                <a href="/profile">Hồ sơ và địa chỉ</a>
+                            }
+                            <a href="/account/change-password">Đổi mật khẩu</a>
+                            <form method="post" action="/account/logout" asp-antiforgery="true">
+                                <button type="submit">Đăng xuất</button>
+                            </form>
+                        </div>
+                    </details>
+                }
+                else
+                {
+                    <a class="icon-link" href="/account/login?returnUrl=@Uri.EscapeDataString(Context.Request.Path + Context.Request.QueryString)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
+                        <span class="label">Đăng nhập</span>
+                    </a>
+                }
+                @await Component.InvokeAsync("CartBadge")
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="wrap"><partial name="_Flash" /></div>
+        @RenderBody()
+    </main>
+
+    <footer class="footer">
+        <div class="wrap footer__cols">
+            <div>
+                <a class="brand" href="/" style="font-size:1.3rem"><partial name="_DaisyMark" />daisy</a>
+                <p class="small" style="margin-top:8px">Thời trang hằng ngày, may vừa vặn, giá rõ ràng.</p>
+            </div>
+            <div>
+                <h4>Mua sắm</h4>
+                <div><a href="/products">Tất cả sản phẩm</a></div>
+                <div><a href="/products?sale=true">Đang giảm giá</a></div>
+            </div>
+            <div>
+                <h4>Hỗ trợ</h4>
+                <div>Đổi size trong 7 ngày</div>
+                <div>Thanh toán khi nhận hàng hoặc chuyển khoản VietQR</div>
+            </div>
+        </div>
+    </footer>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

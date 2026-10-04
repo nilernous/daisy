@@ -1,2 +1,8 @@
 <Solution>
+  <Project Path="Daisy.Api/Daisy.Api.csproj" />
+  <Project Path="Daisy.Application/Daisy.Application.csproj" />
+  <Project Path="Daisy.Domain/Daisy.Domain.csproj" />
+  <Project Path="Daisy.Infrastructure/Daisy.Infrastructure.csproj" />
+  <Project Path="Daisy.Mvc/Daisy.Mvc.csproj" />
+  <Project Path="Daisy.Tests/Daisy.Tests.csproj" />
 </Solution>

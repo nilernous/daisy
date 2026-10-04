@@ -1,0 +1,45 @@
+@model PaymentViewModel
+@{
+    var q = Model.Qr;
+    var stopAt = (q.ExpiresAt ?? DateTimeOffset.UtcNow.AddMinutes(30)).AddMinutes(5);
+}
+
+<div class="wrap page">
+    <div class="page__head">
+        <div class="crumbs"><a href="/orders">Đơn hàng của tôi</a> / <a href="/orders/@Model.Order.Id">@Model.Order.OrderCode</a> / Thanh toán</div>
+        <h1>Quét mã để chuyển khoản</h1>
+        <p class="muted">Mở ứng dụng ngân hàng, chọn quét QR. Số tiền và nội dung đã điền sẵn, bạn chỉ cần xác nhận.</p>
+    </div>
+
+    <div class="qr panel" data-poll-url="/orders/@Model.Order.Id/status" data-done-url="/orders/@Model.Order.Id" data-stop-at="@stopAt.ToString("o")">
+        <div class="qr__code">
+            <img src="@q.QrImageUrl" alt="Mã VietQR chuyển @Display.Money(q.Amount) đến @q.AccountName, nội dung @q.TransferContent" width="560" height="560" />
+        </div>
+        <div class="stack" style="--stack:20px">
+            @if (q.ExpiresAt is not null)
+            {
+                <p style="margin:0" data-deadline="@q.ExpiresAt.Value.ToString("o")">
+                    Thời gian còn lại để chuyển khoản: <span class="countdown" data-clock>--:--</span>
+                </p>
+            }
+            <dl class="qr__facts">
+                <dt>Ngân hàng</dt><dd>@q.BankName</dd>
+                <dt>Số tài khoản</dt><dd>@q.AccountNumber <button class="linkbtn small copy" type="button" data-copy="@q.AccountNumber">Chép</button></dd>
+                <dt>Chủ tài khoản</dt><dd>@q.AccountName</dd>
+                <dt>Số tiền</dt><dd>@Display.Money(q.Amount) <button class="linkbtn small copy" type="button" data-copy="@q.Amount.ToString("0")">Chép</button></dd>
+                <dt>Nội dung</dt><dd>@q.TransferContent <button class="linkbtn small copy" type="button" data-copy="@q.TransferContent">Chép</button></dd>
+            </dl>
+            <p class="small muted" style="margin:0">Giữ đúng nội dung chuyển khoản <strong>@q.TransferContent</strong> để đơn được xác nhận tự động. Nếu chuyển sai nội dung, cửa hàng sẽ đối soát và liên hệ với bạn.</p>
+            <p class="waiting" role="status"><i aria-hidden="true"></i><span data-pay-status>Đang chờ ngân hàng báo đã nhận tiền…</span></p>
+            <div class="row">
+                <a class="btn btn--ghost" href="/orders/@Model.Order.Id">Xem đơn hàng</a>
+                @if (Model.CanSimulate)
+                {
+                    <form method="post" action="/orders/@Model.Order.Id/simulate-transfer" asp-antiforgery="true">
+                        <button class="btn btn--ghost" type="submit" title="Chỉ có ở môi trường phát triển">Giả lập đã chuyển khoản (dev)</button>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</div>

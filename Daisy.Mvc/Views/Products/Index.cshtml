@@ -1,0 +1,115 @@
+@model ProductListViewModel
+@{
+    ViewData["Title"] = Model.Heading;
+    var f = Model.Filter;
+    string[] sizes = ["S", "M", "L", "XL", "29", "30", "31", "32"];
+    string[] colors = ["Trắng", "Đen", "Be", "Xanh navy", "Xanh denim", "Xanh rêu", "Hồng phấn", "Vàng cúc"];
+    (string Value, string Label)[] genders = [("Men", "Nam"), ("Women", "Nữ"), ("Unisex", "Unisex"), ("Kids", "Trẻ em")];
+    (string? Value, string Label)[] sorts = [(null, "Mới nhất"), ("best", "Bán chạy"), ("price-asc", "Giá thấp đến cao"), ("price-desc", "Giá cao đến thấp"), ("rating", "Đánh giá cao")];
+}
+
+<div class="wrap page">
+    <div class="page__head">
+        <div class="crumbs"><a href="/">Trang chủ</a> / <a href="/products">Sản phẩm</a>@if (Model.Category is not null) { <text> / @Model.Category.Name</text> }</div>
+        <h1>@Model.Heading</h1>
+        <p class="muted num">@Model.TotalCount sản phẩm</p>
+    </div>
+
+    <div class="listing">
+        <aside class="filters" aria-label="Bộ lọc">
+            <div>
+                <h3>Danh mục</h3>
+                <div class="chips">
+                    <a class="chip @(f.Category is null ? "chip--on" : "")" href="@f.With("category", null)">Tất cả</a>
+                    @foreach (var c in Model.Categories)
+                    {
+                        <a class="chip @(f.Category == c.Slug ? "chip--on" : "")" href="@f.With("category", c.Slug)">@c.Name</a>
+                        @foreach (var child in c.Children)
+                        {
+                            <a class="chip @(f.Category == child.Slug ? "chip--on" : "")" href="@f.With("category", child.Slug)">@child.Name</a>
+                        }
+                    }
+                </div>
+            </div>
+            <div>
+                <h3>Size</h3>
+                <div class="chips">
+                    @foreach (var s in sizes)
+                    {
+                        <a class="chip @(f.Size == s ? "chip--on" : "")" href="@f.With("size", f.Size == s ? null : s)">@s</a>
+                    }
+                </div>
+            </div>
+            <div>
+                <h3>Màu</h3>
+                <div class="chips">
+                    @foreach (var c in colors)
+                    {
+                        <a class="chip @(f.Color == c ? "chip--on" : "")" href="@f.With("color", f.Color == c ? null : c)">
+                            <span class="swatch" style="background:@Swatch.For(c, null, c)"></span>@c
+                        </a>
+                    }
+                </div>
+            </div>
+            <div>
+                <h3>Dành cho</h3>
+                <div class="chips">
+                    @foreach (var g in genders)
+                    {
+                        <a class="chip @(f.Gender == g.Value ? "chip--on" : "")" href="@f.With("gender", f.Gender == g.Value ? null : g.Value)">@g.Label</a>
+                    }
+                </div>
+            </div>
+            <form method="get" action="/products" class="stack" style="--stack:10px">
+                <h3>Khoảng giá (đ)</h3>
+                @foreach (var (key, value) in new[] { ("q", f.Q), ("category", f.Category), ("size", f.Size), ("color", f.Color), ("gender", f.Gender), ("sort", f.Sort) })
+                {
+                    if (!string.IsNullOrEmpty(value)) { <input type="hidden" name="@key" value="@value" /> }
+                }
+                @if (f.Sale) { <input type="hidden" name="sale" value="true" /> }
+                <div class="row" style="flex-wrap:nowrap">
+                    <label class="sr-only" for="min">Giá từ</label>
+                    <input class="input" id="min" name="min" type="number" min="0" step="10000" placeholder="Từ" value="@f.Min?.ToString("0")" />
+                    <label class="sr-only" for="max">Đến</label>
+                    <input class="input" id="max" name="max" type="number" min="0" step="10000" placeholder="Đến" value="@f.Max?.ToString("0")" />
+                </div>
+                <label class="check"><input type="checkbox" name="sale" value="true" @(f.Sale ? "checked" : "") /> Chỉ món đang giảm giá</label>
+                <button class="btn btn--ghost btn--small" type="submit">Áp dụng</button>
+            </form>
+            @if (f.Size is not null || f.Color is not null || f.Gender is not null || f.Min is not null || f.Max is not null || f.Sale || f.Category is not null || f.Q is not null)
+            {
+                <a href="/products" class="small">Xóa tất cả bộ lọc</a>
+            }
+        </aside>
+
+        <div>
+            <div class="toolbar">
+                <div class="chips" role="list" aria-label="Sắp xếp">
+                    @foreach (var s in sorts)
+                    {
+                        <a role="listitem" class="chip @(f.Sort == s.Value || (f.Sort is null or "newest" && s.Value is null) ? "chip--on" : "")" href="@f.With("sort", s.Value)">@s.Label</a>
+                    }
+                </div>
+            </div>
+
+            @if (Model.Products.Count == 0)
+            {
+                <div class="empty">
+                    <h2>Chưa có sản phẩm phù hợp</h2>
+                    <p>Thử bỏ bớt bộ lọc hoặc tìm bằng từ khóa khác.</p>
+                    <a class="btn" href="/products">Xem tất cả sản phẩm</a>
+                </div>
+            }
+            else
+            {
+                <div class="grid-products">
+                    @foreach (var p in Model.Products)
+                    {
+                        <partial name="_ProductTile" model="p" />
+                    }
+                </div>
+                <partial name="_Pager" model="new PagerModel(f.Page, Model.TotalPages, p => f.PageUrl(p))" />
+            }
+        </div>
+    </div>
+</div>

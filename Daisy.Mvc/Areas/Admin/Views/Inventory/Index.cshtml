@@ -1,0 +1,46 @@
+@model List<LowStockItem>
+@{
+    var includeHidden = ViewData["IncludeHidden"] is true;
+}
+
+<div class="admin__head">
+    <div>
+        <h1>Sắp hết hàng</h1>
+        <p class="muted" style="margin:0">Biến thể có tồn kho bằng hoặc thấp hơn ngưỡng báo, ít hàng nhất ở trên.</p>
+    </div>
+    <a class="chip @(includeHidden ? "chip--on" : "")" href="/admin/inventory?includeHidden=@((!includeHidden).ToString().ToLowerInvariant())">Gồm cả biến thể đang ẩn</a>
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="empty"><h2>Không có biến thể nào sắp hết hàng</h2><p>Mọi biến thể đều còn trên ngưỡng báo.</p></div>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Sản phẩm</th><th>SKU</th><th>Size / màu</th><th class="num">Ngưỡng</th><th>Tồn kho</th></tr></thead>
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td><a href="/admin/products/edit/@item.ProductId#variants"><strong>@item.ProductName</strong></a></td>
+                        <td class="muted">@item.Sku</td>
+                        <td>@string.Join(" / ", new[] { item.Size, item.Color }.Where(x => x is not null))</td>
+                        <td class="num">@item.LowStockThreshold</td>
+                        <td>
+                            <form method="post" action="/admin/inventory/updatestock" asp-antiforgery="true" class="row" style="flex-wrap:nowrap;gap:8px">
+                                <span class="pill @(item.StockQuantity == 0 ? "pill--bad" : "pill--wait")" style="min-width:48px;justify-content:center">@item.StockQuantity</span>
+                                <input type="hidden" name="variantId" value="@item.VariantId" />
+                                <input type="hidden" name="expectedCurrentStock" value="@item.StockQuantity" />
+                                <input type="hidden" name="returnUrl" value="/admin/inventory" />
+                                <input class="input stock-input" name="stockQuantity" type="number" min="0" value="@item.StockQuantity" aria-label="Tồn kho mới của @item.Sku" />
+                                <button class="btn btn--small" type="submit">Cập nhật</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

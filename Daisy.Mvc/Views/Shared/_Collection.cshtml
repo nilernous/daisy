@@ -1,0 +1,16 @@
+@model (string Title, string Link, IReadOnlyList<ProductListItem> Products)
+@if (Model.Products.Count > 0)
+{
+    <section class="section">
+        <div class="section__head">
+            <h2>@Model.Title</h2>
+            <a href="@Model.Link">Xem tất cả</a>
+        </div>
+        <div class="grid-products">
+            @foreach (var p in Model.Products)
+            {
+                <partial name="_ProductTile" model="p" />
+            }
+        </div>
+    </section>
+}

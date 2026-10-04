@@ -1,0 +1,63 @@
+@model ReviewsAdminViewModel
+@{
+    string Url(int page) => $"/admin/reviews?page={page}" + (Model.Rating is null ? "" : $"&rating={Model.Rating}") + (Model.Visible is null ? "" : $"&visible={Model.Visible.ToString()!.ToLowerInvariant()}") + (string.IsNullOrEmpty(Model.Product) ? "" : $"&product={Uri.EscapeDataString(Model.Product)}");
+}
+
+<div class="admin__head">
+    <div>
+        <h1>Đánh giá</h1>
+        <p class="muted" style="margin:0">@Model.TotalCount đánh giá. Ẩn đánh giá vi phạm sẽ loại nó khỏi điểm trung bình nhưng vẫn lưu lại.</p>
+    </div>
+</div>
+
+<form class="filterbar" method="get" action="/admin/reviews">
+    <div class="field"><label for="product">Sản phẩm</label><input id="product" name="product" value="@Model.Product" placeholder="Tên sản phẩm" /></div>
+    <div class="field">
+        <label for="rating">Số sao</label>
+        <select id="rating" name="rating">
+            <option value="">Tất cả</option>
+            @for (var s = 5; s >= 1; s--) { <option value="@s" selected="@(Model.Rating == s)">@s sao</option> }
+        </select>
+    </div>
+    <div class="field">
+        <label for="visible">Hiển thị</label>
+        <select id="visible" name="visible">
+            <option value="">Tất cả</option>
+            <option value="true" selected="@(Model.Visible == true)">Đang hiện</option>
+            <option value="false" selected="@(Model.Visible == false)">Đang ẩn</option>
+        </select>
+    </div>
+    <button class="btn btn--ghost" type="submit">Lọc</button>
+</form>
+
+@if (Model.Reviews.Count == 0)
+{
+    <div class="empty"><h2>Không có đánh giá phù hợp</h2></div>
+}
+else
+{
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Sản phẩm</th><th>Khách hàng</th><th>Đánh giá</th><th>Ngày</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var r in Model.Reviews)
+                {
+                    <tr style="@(r.IsVisible ? "" : "opacity:.6")">
+                        <td><a href="/admin/products/edit/@r.ProductId">@r.ProductName</a></td>
+                        <td>@r.UserFullName</td>
+                        <td style="max-width:420px"><span class="stars" aria-label="@r.Rating sao">@(new string('★', r.Rating))</span><div>@r.Comment</div></td>
+                        <td>@Display.Date(r.CreatedAt)</td>
+                        <td>
+                            <form method="post" action="/admin/reviews/visibility/@r.Id" asp-antiforgery="true">
+                                <input type="hidden" name="isVisible" value="@((!r.IsVisible).ToString().ToLowerInvariant())" />
+                                <input type="hidden" name="returnUrl" value="@Url(Model.Page)" />
+                                <button class="btn btn--small @(r.IsVisible ? "btn--danger" : "btn--ghost")" type="submit">@(r.IsVisible ? "Ẩn" : "Hiện lại")</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <partial name="_Pager" model="new PagerModel(Model.Page, Model.TotalPages, Url)" />
+}

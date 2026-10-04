@@ -1,0 +1,8 @@
+@model PriceModel
+<span class="price">
+    <span class="tag @(Model.Large ? "tag--lg" : "")">@Display.Money(Model.Price)</span>
+    @if (Model.WasPrice is decimal was && was > Model.Price)
+    {
+        <span class="was">@Display.Money(was)</span>
+    }
+</span>

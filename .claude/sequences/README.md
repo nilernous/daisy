@@ -79,7 +79,7 @@ One PlantUML sequence diagram per use case in [`../use-cases/`](../use-cases/REA
 | [UC-34.puml](UC-34.puml) | [UC-34](../use-cases/UC-34.md) Place Order (COD) | CHK-04 | Customer | `POST /api/checkout` |
 | [UC-35.puml](UC-35.puml) | [UC-35](../use-cases/UC-35.md) Pay with VietQR | CHK-05 | Customer | `POST /api/checkout`<br>`GET /api/orders/{id}/payment-qr`<br>`GET /api/orders/{id}` |
 | [UC-36.puml](UC-36.puml) | [UC-36](../use-cases/UC-36.md) Receive Payment Webhook | CHK-06 | Bank webhook service | `POST /api/payments/webhook` |
-| [UC-72.puml](UC-72.puml) | [UC-72](../use-cases/UC-72.md) Expire Unpaid VietQR Order | — (added) | System | Background job (no endpoint) |
+| [UC-72.puml](UC-72.puml) | [UC-72](../use-cases/UC-72.md) Expire Unpaid VietQR Order | CHK-08 | System | Background job (no endpoint) |
 
 ### My Orders
 
@@ -131,7 +131,7 @@ One PlantUML sequence diagram per use case in [`../use-cases/`](../use-cases/REA
 | [UC-55.puml](UC-55.puml) | [UC-55](../use-cases/UC-55.md) Update Order Status | AORD-03 | Staff / Admin | `PATCH /api/admin/orders/{id}/status` |
 | [UC-56.puml](UC-56.puml) | [UC-56](../use-cases/UC-56.md) Cancel Order (Admin) | AORD-04 | Staff / Admin | `POST /api/admin/orders/{id}/cancel` |
 | [UC-57.puml](UC-57.puml) | [UC-57](../use-cases/UC-57.md) Update Payment Status | AORD-05 | Staff / Admin | `PATCH /api/admin/orders/{id}/payment` |
-| [UC-71.puml](UC-71.puml) | [UC-71](../use-cases/UC-71.md) Reconcile Payment Transactions | — (added) | Staff / Admin | `GET /api/admin/payment-transactions`<br>`POST /api/admin/payment-transactions/{id}/apply`<br>`PATCH /api/admin/payment-transactions/{id}/resolution` |
+| [UC-71.puml](UC-71.puml) | [UC-71](../use-cases/UC-71.md) Reconcile Payment Transactions | AORD-06 | Staff / Admin | `GET /api/admin/payment-transactions`<br>`POST /api/admin/payment-transactions/{id}/apply`<br>`PATCH /api/admin/payment-transactions/{id}/resolution` |
 
 ### Voucher Management
 

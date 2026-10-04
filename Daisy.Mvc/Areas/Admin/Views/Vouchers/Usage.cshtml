@@ -1,0 +1,47 @@
+@model VoucherUsage
+@{
+    var v = Model.Voucher;
+}
+
+<div class="admin__head">
+    <div>
+        <div class="crumbs"><a href="/admin/vouchers">Mã giảm giá</a> / @v.Code</div>
+        <h1>Lượt dùng @v.Code</h1>
+        <p class="muted" style="margin:0">@Display.Discount(v.DiscountType, v.DiscountValue, v.MaxDiscountAmount), đơn tối thiểu @Display.Money(v.MinOrderAmount)</p>
+    </div>
+    <a class="btn btn--ghost" href="/admin/vouchers/edit/@v.Id">Sửa mã</a>
+</div>
+
+<div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+    <div class="kpi"><span>Đã dùng</span><b>@v.UsedCount@(v.UsageLimit is null ? "" : $" / {v.UsageLimit}")</b></div>
+    <div class="kpi"><span>Tổng tiền đã giảm</span><b>@Display.Money(Model.TotalDiscountAmount)</b></div>
+    <div class="kpi"><span>Trạng thái</span><b style="font-size:var(--fs-l)">@Display.VoucherState(v.State)@(v.IsActive ? "" : ", đã tắt")</b></div>
+</div>
+
+@if (Model.Orders.Items.Count == 0)
+{
+    <div class="empty"><h2>Chưa có đơn nào dùng mã này</h2></div>
+}
+else
+{
+    <p class="small muted">Đơn đã hủy vẫn được liệt kê nhưng không tính vào số lượt dùng và tổng tiền đã giảm.</p>
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Đơn hàng</th><th>Khách hàng</th><th>Ngày đặt</th><th>Trạng thái</th><th class="num">Giảm</th><th class="num">Tổng tiền</th></tr></thead>
+            <tbody>
+                @foreach (var o in Model.Orders.Items)
+                {
+                    <tr>
+                        <td><a href="/admin/orders/detail/@o.OrderId" class="num">@o.OrderCode</a></td>
+                        <td>@o.CustomerName</td>
+                        <td>@Display.DateTime(o.CreatedAt)</td>
+                        <td><span class="pill pill--@Display.Tone(o.OrderStatus)">@Display.Label(o.OrderStatus)</span></td>
+                        <td class="num">@Display.Money(o.DiscountAmount)</td>
+                        <td class="num">@Display.Money(o.TotalAmount)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <partial name="_Pager" model='new PagerModel(Model.Orders.Page, Model.Orders.TotalPages, n => $"/admin/vouchers/usage/{v.Id}?page={n}")' />
+}

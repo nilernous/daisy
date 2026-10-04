@@ -1,0 +1,65 @@
+@model TransactionsViewModel
+
+<div class="admin__head">
+    <div>
+        <h1>Đối soát chuyển khoản</h1>
+        <p class="muted" style="margin:0">Mọi giao dịch ngân hàng báo về. Giao dịch không khớp đơn chờ bạn xử lý: gán vào đơn, ghi nhận đã hoàn tiền, hoặc bỏ qua.</p>
+    </div>
+</div>
+
+<nav class="chips" style="margin-bottom:16px">
+    <a class="chip @(Model.NeedsReview ? "chip--on" : "")" href="/admin/payments">Cần xử lý</a>
+    <a class="chip @(Model.NeedsReview ? "" : "chip--on")" href="/admin/payments?needsReview=false">Tất cả giao dịch</a>
+</nav>
+
+@if (Model.Transactions.Items.Count == 0)
+{
+    <div class="empty">
+        <h2>@(Model.NeedsReview ? "Không có giao dịch nào cần xử lý" : "Chưa có giao dịch nào")</h2>
+        <p>Chuyển khoản khớp đúng mã đơn được xác nhận tự động và không cần làm gì thêm.</p>
+    </div>
+}
+else
+{
+    <div class="stack" style="--stack:12px">
+        @foreach (var t in Model.Transactions.Items)
+        {
+            <article class="panel panel--tight">
+                <div class="row row--between">
+                    <div>
+                        <strong style="font-size:var(--fs-l)">@Display.Money(t.Amount)</strong>
+                        <span class="muted small">lúc @Display.DateTime(t.TransferredAt), mã GD <span class="num">@t.BankReference</span></span>
+                    </div>
+                    <div class="row">
+                        <span class="pill @(t.MatchResult == PaymentMatchResult.Matched ? "pill--good" : "pill--wait")">@Display.Label(t.MatchResult)</span>
+                        @if (t.MatchResult != PaymentMatchResult.Matched)
+                        {
+                            <span class="pill @(t.Resolution is null ? "pill--bad" : "pill--muted")">@Display.Label(t.Resolution)</span>
+                        }
+                    </div>
+                </div>
+                <p class="small" style="margin:6px 0 0">Nội dung: “@t.TransferContent”@if (t.Order is not null) { <text>. Đơn liên quan: <a href="/admin/orders/detail/@t.Order.Id">@t.Order.OrderCode</a> (@Display.Money(t.Order.TotalAmount), @Display.Label(t.Order.OrderStatus).ToLowerInvariant(), @Display.Label(t.Order.PaymentStatus).ToLowerInvariant())</text> }</p>
+                @if (t.ResolvedBy is not null)
+                {
+                    <p class="small muted" style="margin:6px 0 0">@t.ResolvedBy.FullName xử lý lúc @Display.DateTime(t.ResolvedAt): @t.ResolutionNote</p>
+                }
+                @if (t.NeedsReview)
+                {
+                    <div class="cols-2" style="margin-top:12px">
+                        <form method="post" action="/admin/payments/apply/@t.Id" asp-antiforgery="true" class="filterbar" style="margin:0">
+                            <div class="field"><label for="code-@t.Id">Gán vào đơn</label><input id="code-@t.Id" name="orderCode" placeholder="Mã đơn, VD DS261001AB12" required value="@t.Order?.OrderCode" /></div>
+                            <div class="field"><label for="note-a-@t.Id">Ghi chú</label><input id="note-a-@t.Id" name="note" placeholder="Không bắt buộc" /></div>
+                            <button class="btn btn--small" type="submit">Gán</button>
+                        </form>
+                        <form method="post" action="/admin/payments/resolve/@t.Id" asp-antiforgery="true" class="filterbar" style="margin:0">
+                            <div class="field"><label for="note-r-@t.Id">Lý do</label><input id="note-r-@t.Id" name="note" required placeholder="VD: đã hoàn tiền ngày 02/10" /></div>
+                            <button class="btn btn--small btn--ghost" type="submit" name="resolution" value="Refunded">Đã hoàn tiền</button>
+                            <button class="btn btn--small btn--ghost" type="submit" name="resolution" value="Ignored">Bỏ qua</button>
+                        </form>
+                    </div>
+                }
+            </article>
+        }
+    </div>
+    <partial name="_Pager" model='new PagerModel(Model.Transactions.Page, Model.Transactions.TotalPages, n => $"/admin/payments?page={n}{(Model.NeedsReview ? "" : "&needsReview=false")}")' />
+}

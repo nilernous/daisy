@@ -1,0 +1,104 @@
+@model ProfileViewModel
+@{
+    var me = Model.Profile;
+    (string Value, string Label)[] genders = [("", "Không muốn nói"), ("Male", "Nam"), ("Female", "Nữ"), ("Other", "Khác")];
+}
+
+<div class="wrap page">
+    <div class="page__head">
+        <h1>Hồ sơ của tôi</h1>
+        <p class="muted">Thành viên từ @Display.Date(me.CreatedAt). <a href="/orders">Xem đơn hàng</a></p>
+    </div>
+
+    <div class="split" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
+        <section class="panel">
+            <h2 style="font-size:var(--fs-l)">Thông tin cá nhân</h2>
+            <form method="post" action="/profile" asp-antiforgery="true" enctype="multipart/form-data" class="stack" style="--stack:16px" novalidate>
+                <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+                <div class="row">
+                    <div class="thumb" style="width:72px;border-radius:50%;aspect-ratio:1"><partial name="_Media" model='new MediaModel(me.AvatarUrl, me.FullName)' /></div>
+                    <div class="field" style="flex:1">
+                        <label for="avatar">Ảnh đại diện</label>
+                        <input id="avatar" name="Form.Avatar" type="file" accept="image/jpeg,image/png,image/webp" />
+                        <span class="hint">JPEG, PNG hoặc WebP, tối đa 2 MB.</span>
+                        <span asp-validation-for="Form.Avatar" class="field-error"></span>
+                        @if (me.AvatarUrl is not null) { <label class="check small"><input type="checkbox" name="Form.RemoveAvatar" value="true" /> Xóa ảnh hiện tại</label> }
+                    </div>
+                </div>
+                <div class="field">
+                    <label for="email">Email</label>
+                    <input id="email" value="@me.Email" disabled />
+                    <span class="hint">Email dùng để đăng nhập nên không đổi được.</span>
+                </div>
+                <div class="field">
+                    <label asp-for="Form.FullName">Họ và tên</label>
+                    <input asp-for="Form.FullName" autocomplete="name" />
+                    <span asp-validation-for="Form.FullName" class="field-error"></span>
+                </div>
+                <div class="form-grid">
+                    <div class="field">
+                        <label asp-for="Form.Phone">Số điện thoại</label>
+                        <input asp-for="Form.Phone" type="tel" autocomplete="tel" />
+                        <span asp-validation-for="Form.Phone" class="field-error"></span>
+                    </div>
+                    <div class="field">
+                        <label asp-for="Form.DateOfBirth">Ngày sinh</label>
+                        <input asp-for="Form.DateOfBirth" type="date" />
+                        <span asp-validation-for="Form.DateOfBirth" class="field-error"></span>
+                    </div>
+                </div>
+                <div class="field">
+                    <label asp-for="Form.Gender">Giới tính</label>
+                    <select asp-for="Form.Gender">
+                        @foreach (var g in genders) { <option value="@g.Value">@g.Label</option> }
+                    </select>
+                </div>
+                <button class="btn" type="submit">Lưu thông tin</button>
+            </form>
+        </section>
+
+        <section class="stack" style="--stack:20px">
+            <div class="panel">
+                <h2 style="font-size:var(--fs-l)">Địa chỉ nhận hàng</h2>
+                @if (Model.Addresses.Count == 0)
+                {
+                    <p class="muted">Chưa có địa chỉ nào. Thêm địa chỉ bên dưới để đặt hàng nhanh hơn.</p>
+                }
+                <div class="stack" style="--stack:12px">
+                    @foreach (var a in Model.Addresses)
+                    {
+                        <div class="panel panel--tight">
+                            <div class="row row--between">
+                                <strong>@a.ReceiverName <span class="muted num" style="font-weight:400">@a.ReceiverPhone</span></strong>
+                                @if (a.IsDefault) { <span class="pill pill--muted">Mặc định</span> }
+                            </div>
+                            <div class="small">@a.FullAddress</div>
+                            <div class="row small" style="margin-top:8px">
+                                <a href="/profile/addresses/@a.Id/edit">Sửa</a>
+                                @if (!a.IsDefault)
+                                {
+                                    <form class="inline-form" method="post" action="/profile/addresses/@a.Id/default" asp-antiforgery="true"><button class="linkbtn" type="submit">Đặt làm mặc định</button></form>
+                                }
+                                <details>
+                                    <summary class="linkbtn linkbtn--danger">Xóa</summary>
+                                    <form method="post" action="/profile/addresses/@a.Id/delete" asp-antiforgery="true" style="margin-top:6px">
+                                        <button class="btn btn--danger btn--small" type="submit">Xóa địa chỉ này</button>
+                                    </form>
+                                </details>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="panel" id="new-address">
+                <h3>Thêm địa chỉ</h3>
+                <form method="post" action="/profile/addresses" asp-antiforgery="true" class="stack" style="--stack:14px" novalidate>
+                    <input type="hidden" name="NewAddress.ReturnUrl" value="@(Context.Request.Query["returnUrl"])" />
+                    <partial name="_AddressFields" model="Model.NewAddress" view-data='new ViewDataDictionary(ViewData) { TemplateInfo = { HtmlFieldPrefix = "NewAddress" } }' />
+                    <button class="btn" type="submit">Thêm địa chỉ</button>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>

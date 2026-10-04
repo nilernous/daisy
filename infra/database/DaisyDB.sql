@@ -412,6 +412,13 @@ CREATE INDEX [IX_Reviews_ProductId] ON [dbo].[Reviews]([ProductId]) WHERE [IsVis
 CREATE INDEX [IX_Wishlists_ProductId] ON [dbo].[Wishlists]([ProductId]);
 CREATE INDEX [IX_PaymentTransactions_OrderId] ON [dbo].[PaymentTransactions]([OrderId]) WHERE [OrderId] IS NOT NULL;
 CREATE INDEX [IX_PaymentTransactions_NeedsReview] ON [dbo].[PaymentTransactions]([ReceivedAt] DESC) WHERE [MatchResult] <> N'Matched' AND [Resolution] IS NULL;
+-- Foreign key lookups (also created by the EF Core model).
+CREATE INDEX [IX_ProductImages_VariantId] ON [dbo].[ProductImages]([VariantId]);
+CREATE INDEX [IX_CartItems_VariantId] ON [dbo].[CartItems]([VariantId]);
+CREATE INDEX [IX_Orders_VoucherId] ON [dbo].[Orders]([VoucherId]);
+CREATE INDEX [IX_OrderItems_VariantId] ON [dbo].[OrderItems]([VariantId]);
+CREATE INDEX [IX_Reviews_UserId] ON [dbo].[Reviews]([UserId]);
+CREATE INDEX [IX_PaymentTransactions_ResolvedByUserId] ON [dbo].[PaymentTransactions]([ResolvedByUserId]);
 GO
 
 PRINT N'Daisy database created successfully (13 tables, optimized).';

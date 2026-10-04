@@ -1,0 +1,54 @@
+@model OrdersViewModel
+@{
+    (OrderStatus? Value, string Label)[] tabs = [(null, "Tất cả"), (OrderStatus.Pending, "Chờ xác nhận"), (OrderStatus.Confirmed, "Đã xác nhận"), (OrderStatus.Shipping, "Đang giao"), (OrderStatus.Completed, "Hoàn thành"), (OrderStatus.Canceled, "Đã hủy")];
+}
+
+<div class="wrap page">
+    <div class="page__head">
+        <h1>Đơn hàng của tôi</h1>
+    </div>
+
+    <nav class="chips" aria-label="Lọc theo trạng thái" style="margin-bottom:20px">
+        @foreach (var tab in tabs)
+        {
+            <a class="chip @(Model.Status == tab.Value ? "chip--on" : "")" href="/orders@(tab.Value is null ? "" : $"?status={tab.Value}")">@tab.Label</a>
+        }
+    </nav>
+
+    @if (Model.Orders.Items.Count == 0)
+    {
+        <div class="empty">
+            <h2>Chưa có đơn hàng @(Model.Status is null ? "nào" : "ở trạng thái này")</h2>
+            <p>Đơn hàng bạn đặt sẽ hiện ở đây cùng trạng thái giao hàng.</p>
+            <a class="btn" href="/products">Bắt đầu mua sắm</a>
+        </div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr><th>Đơn hàng</th><th>Ngày đặt</th><th>Trạng thái</th><th class="num">Tổng tiền</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var o in Model.Orders.Items)
+                    {
+                        <tr>
+                            <td>
+                                <div class="cell-product">
+                                    <div class="thumb"><partial name="_Media" model='new MediaModel(o.ThumbnailUrl, o.OrderCode)' /></div>
+                                    <div><strong class="num">@o.OrderCode</strong><div class="muted">@o.ItemCount sản phẩm, @Display.Label(o.PaymentMethod).ToLowerInvariant()</div></div>
+                                </div>
+                            </td>
+                            <td>@Display.DateTime(o.CreatedAt)</td>
+                            <td><partial name="_Pills" model="(o.OrderStatus, o.PaymentStatus)" /></td>
+                            <td class="num"><strong>@Display.Money(o.TotalAmount)</strong></td>
+                            <td class="num"><a href="/orders/@o.Id">Xem</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_Pager" model='new PagerModel(Model.Orders.Page, Model.Orders.TotalPages, p => $"/orders?page={p}{(Model.Status is null ? "" : $"&status={Model.Status}")}")' />
+    }
+</div>

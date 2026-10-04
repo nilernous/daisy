@@ -1,0 +1,111 @@
+@model CheckoutViewModel
+@{
+    var c = Model.Checkout;
+    var t = Model.Totals;
+    var unavailable = c.Items.Any(i => !i.IsAvailable);
+}
+
+<div class="wrap page">
+    <div class="page__head">
+        <div class="crumbs"><a href="/cart">Giỏ hàng</a> / Thanh toán</div>
+        <h1>Thanh toán</h1>
+    </div>
+
+    <div asp-validation-summary="ModelOnly" class="validation-summary-errors" style="margin-bottom:20px"></div>
+
+    <div class="split">
+        <div class="stack" style="--stack:24px">
+            <section class="panel">
+                <h2 style="font-size:var(--fs-l)">Giao đến</h2>
+                @if (c.Addresses.Count == 0)
+                {
+                    <p>Bạn chưa có địa chỉ nhận hàng.</p>
+                    <a class="btn btn--ghost" href="/profile#new-address">Thêm địa chỉ</a>
+                }
+                else
+                {
+                    <div class="stack" style="--stack:10px" role="radiogroup" aria-label="Địa chỉ nhận hàng">
+                        @foreach (var a in c.Addresses)
+                        {
+                            <label class="panel panel--tight check" style="align-items:flex-start;width:100%">
+                                <input type="radio" form="place-order" name="AddressId" value="@a.Id" @(Model.Form.AddressId == a.Id ? "checked" : "") />
+                                <span>
+                                    <strong>@a.ReceiverName</strong> <span class="muted num">@a.ReceiverPhone</span>
+                                    @if (a.IsDefault) { <span class="pill pill--muted">Mặc định</span> }
+                                    <br /><span class="small">@a.FullAddress</span>
+                                </span>
+                            </label>
+                        }
+                    </div>
+                    <p class="small" style="margin-top:12px"><a href="/profile#new-address">Thêm địa chỉ khác</a></p>
+                }
+                <span asp-validation-for="Form.AddressId" class="field-error"></span>
+            </section>
+
+            <section class="panel">
+                <h2 style="font-size:var(--fs-l)">Thanh toán bằng</h2>
+                <div class="stack" style="--stack:10px" role="radiogroup" aria-label="Phương thức thanh toán">
+                    <label class="panel panel--tight check" style="width:100%">
+                        <input type="radio" form="place-order" name="PaymentMethod" value="COD" @(Model.Form.PaymentMethod == PaymentMethod.COD ? "checked" : "") />
+                        <span><strong>Thanh toán khi nhận hàng</strong><br /><span class="small muted">Trả tiền mặt cho người giao hàng.</span></span>
+                    </label>
+                    <label class="panel panel--tight check" style="width:100%">
+                        <input type="radio" form="place-order" name="PaymentMethod" value="Online" @(Model.Form.PaymentMethod == PaymentMethod.Online ? "checked" : "") />
+                        <span><strong>Chuyển khoản VietQR</strong><br /><span class="small muted">Quét mã bằng ứng dụng ngân hàng. Đơn được giữ 30 phút để bạn chuyển khoản.</span></span>
+                    </label>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h2 style="font-size:var(--fs-l)">Sản phẩm (@c.Items.Count)</h2>
+                <div class="lines">
+                    @foreach (var i in c.Items)
+                    {
+                        <div class="line @(i.IsAvailable ? "" : "line--off")" style="grid-template-columns:64px minmax(0,1fr) auto">
+                            <div class="line__media" style="width:64px"><partial name="_Media" model='new MediaModel(i.ThumbnailUrl, i.ProductName, i.Color)' /></div>
+                            <div>
+                                <strong>@i.ProductName</strong>
+                                <div class="muted small">@string.Join(" / ", new[] { i.Size, i.Color }.Where(x => x is not null)), số lượng @i.Quantity</div>
+                                @if (!i.IsAvailable) { <div class="stock-note stock-note--out">Không còn đủ hàng, hãy sửa trong giỏ.</div> }
+                            </div>
+                            <span class="num">@Display.Money(i.LineTotal)</span>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+
+        <aside class="panel stack" style="--stack:16px">
+            <form method="get" action="/checkout" class="field">
+                <label for="voucher">Mã giảm giá</label>
+                <div class="row" style="flex-wrap:nowrap">
+                    <input class="input" id="voucher" name="voucher" value="@(Model.VoucherCode ?? Context.Request.Query["voucher"])" placeholder="VD: DAISY10" style="text-transform:uppercase" />
+                    <button class="btn btn--ghost" type="submit">Áp dụng</button>
+                </div>
+                @if (Model.VoucherError is not null) { <span class="field-error">@Model.VoucherError</span> }
+                @if (t.Voucher is not null)
+                {
+                    <span class="small" style="color:var(--leaf);font-weight:600">@t.Voucher.Code: @Display.Discount(t.Voucher.DiscountType, t.Voucher.DiscountValue, t.Voucher.MaxDiscountAmount). <a href="/checkout">Bỏ mã</a></span>
+                }
+            </form>
+
+            <div class="summary">
+                <div><span>Tạm tính</span><span>@Display.Money(t.SubtotalAmount)</span></div>
+                <div><span>Giảm giá</span><span>@(t.DiscountAmount > 0 ? "−" + Display.Money(t.DiscountAmount) : "0đ")</span></div>
+                <div><span>Phí giao hàng</span><span>@Display.Money(t.ShippingFee)</span></div>
+                <div class="total"><span>Tổng cộng</span><span>@Display.Money(t.TotalAmount)</span></div>
+            </div>
+
+            <form id="place-order" method="post" action="/checkout" asp-antiforgery="true" class="stack" style="--stack:12px">
+                <input type="hidden" name="VoucherCode" value="@Model.VoucherCode" />
+                <input type="hidden" name="ExpectedTotal" value="@t.TotalAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                <div class="field">
+                    <label for="note">Ghi chú cho cửa hàng</label>
+                    <textarea id="note" name="CustomerNote" maxlength="500" placeholder="VD: gọi trước khi giao">@Model.Form.CustomerNote</textarea>
+                </div>
+                <button class="btn btn--block" type="submit" @(c.Addresses.Count == 0 || unavailable ? "disabled" : "")>Đặt hàng</button>
+                <p class="small muted" style="margin:0">Tổng tiền được cửa hàng tính lại khi đặt hàng. Nếu giá vừa thay đổi, bạn sẽ được xác nhận lại.</p>
+            </form>
+        </aside>
+    </div>
+</div>

@@ -1,0 +1,35 @@
+@model AddressForm
+<div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+<div class="form-grid">
+    <div class="field">
+        <label asp-for="ReceiverName">Người nhận</label>
+        <input asp-for="ReceiverName" autocomplete="name" />
+        <span asp-validation-for="ReceiverName" class="field-error"></span>
+    </div>
+    <div class="field">
+        <label asp-for="ReceiverPhone">Số điện thoại</label>
+        <input asp-for="ReceiverPhone" type="tel" autocomplete="tel" />
+        <span asp-validation-for="ReceiverPhone" class="field-error"></span>
+    </div>
+    <div class="field">
+        <label asp-for="Province">Tỉnh / thành phố</label>
+        <input asp-for="Province" autocomplete="address-level1" />
+        <span asp-validation-for="Province" class="field-error"></span>
+    </div>
+    <div class="field">
+        <label asp-for="District">Quận / huyện</label>
+        <input asp-for="District" autocomplete="address-level2" />
+        <span asp-validation-for="District" class="field-error"></span>
+    </div>
+    <div class="field">
+        <label asp-for="Ward">Phường / xã</label>
+        <input asp-for="Ward" autocomplete="address-level3" />
+        <span asp-validation-for="Ward" class="field-error"></span>
+    </div>
+    <div class="field">
+        <label asp-for="StreetAddress">Số nhà, tên đường</label>
+        <input asp-for="StreetAddress" autocomplete="street-address" />
+        <span asp-validation-for="StreetAddress" class="field-error"></span>
+    </div>
+    <label class="check span-2"><input asp-for="IsDefault" /> Dùng làm địa chỉ mặc định</label>
+</div>

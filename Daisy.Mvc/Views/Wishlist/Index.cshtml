@@ -1,0 +1,39 @@
+@model List<WishlistItem>
+
+<div class="wrap page">
+    <div class="page__head">
+        <h1>Sản phẩm yêu thích</h1>
+    </div>
+
+    @if (Model.Count == 0)
+    {
+        <div class="empty">
+            <h2>Chưa có sản phẩm yêu thích</h2>
+            <p>Bấm “Lưu vào yêu thích” ở trang sản phẩm để xem lại sau.</p>
+            <a class="btn" href="/products">Xem sản phẩm</a>
+        </div>
+    }
+    else
+    {
+        <div class="grid-products">
+            @foreach (var w in Model)
+            {
+                <div class="tile">
+                    <a class="tile__media" href="/products/@w.Slug" style="@(w.IsAvailable ? "" : "opacity:.5")">
+                        <partial name="_Media" model='new MediaModel(w.ThumbnailUrl, w.Name)' />
+                        <span class="tile__tag"><partial name="_Price" model='new PriceModel(w.EffectivePrice, w.IsOnSale ? w.BasePrice : null)' /></span>
+                    </a>
+                    <div class="row row--between">
+                        <div>
+                            <a class="tile__name" href="/products/@w.Slug" style="text-decoration:none">@w.Name</a>
+                            @if (!w.IsAvailable) { <div class="stock-note stock-note--out">Đã ngừng bán</div> }
+                        </div>
+                        <form method="post" action="/wishlist/@w.ProductId/remove" asp-antiforgery="true">
+                            <button class="linkbtn linkbtn--danger small" type="submit">Bỏ</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

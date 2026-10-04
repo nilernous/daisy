@@ -1,7 +1,7 @@
 @startuml UC-72
 ' Use case: ../use-cases/UC-72.md
 title UC-72: Expire Unpaid VietQR Order
-footer Added (extends CHK-05) | Business rules: BR-35, BR-36, BR-41
+footer Feature CHK-08 | Business rules: BR-35, BR-36, BR-41
 autonumber
 hide footbox
 skinparam responseMessageBelowArrow true

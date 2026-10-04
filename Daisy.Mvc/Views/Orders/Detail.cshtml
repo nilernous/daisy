@@ -1,0 +1,113 @@
+@model OrderDetail
+
+<div class="wrap page">
+    <div class="page__head">
+        <div class="crumbs"><a href="/orders">Đơn hàng của tôi</a> / @Model.OrderCode</div>
+        <div class="row row--between">
+            <h1 style="margin:0" class="num">Đơn @Model.OrderCode</h1>
+            <div class="row"><partial name="_Pills" model="(Model.OrderStatus, Model.PaymentStatus)" /></div>
+        </div>
+    </div>
+
+    @if (Model.CanPayWithQr)
+    {
+        <div class="flash flash--info" style="margin:0 0 20px">
+            Đơn đang chờ chuyển khoản, giữ hàng đến @Display.DateTime(Model.PaymentExpiresAt).
+            <a class="btn btn--small" style="margin-left:12px" href="/orders/@Model.Id/payment">Mở mã VietQR</a>
+        </div>
+    }
+
+    <div class="split">
+        <div class="stack" style="--stack:24px">
+            <section class="panel">
+                <partial name="_OrderTrack" model="Model" />
+            </section>
+
+            <section class="panel" id="items">
+                <h2 style="font-size:var(--fs-l)">Sản phẩm</h2>
+                <div class="lines">
+                    @foreach (var i in Model.Items)
+                    {
+                        <div class="line" style="grid-template-columns:64px minmax(0,1fr) auto">
+                            <a class="line__media" style="width:64px" href="/products/@i.ProductSlug"><partial name="_Media" model='new MediaModel(i.ImageUrl, i.ProductName, i.Color)' /></a>
+                            <div>
+                                <a href="/products/@i.ProductSlug" style="font-weight:600;text-decoration:none">@i.ProductName</a>
+                                <div class="muted small">@string.Join(" / ", new[] { i.Size, i.Color }.Where(x => x is not null)), @Display.Money(i.UnitPrice) x @i.Quantity</div>
+                                @if (i.CanReview)
+                                {
+                                    <details style="margin-top:8px">
+                                        <summary class="linkbtn small">Đánh giá sản phẩm này</summary>
+                                        <form method="post" action="/orders/@Model.Id/items/@i.OrderItemId/review" asp-antiforgery="true" class="stack" style="--stack:10px;margin-top:10px">
+                                            <fieldset>
+                                                <legend class="label">Bạn chấm mấy sao?</legend>
+                                                <div class="opts">
+                                                    @for (var s = 5; s >= 1; s--)
+                                                    {
+                                                        <label class="opt"><input type="radio" name="rating" value="@s" @(s == 5 ? "checked" : "") style="accent-color:var(--ink)" /> @s★</label>
+                                                    }
+                                                </div>
+                                            </fieldset>
+                                            <div class="field">
+                                                <label for="c-@i.OrderItemId">Nhận xét (không bắt buộc)</label>
+                                                <textarea id="c-@i.OrderItemId" name="comment" maxlength="1000" placeholder="Chất vải, form dáng, size có vừa không…"></textarea>
+                                            </div>
+                                            <button class="btn btn--small" type="submit">Gửi đánh giá</button>
+                                        </form>
+                                    </details>
+                                }
+                                else if (i.ReviewId is not null)
+                                {
+                                    <div class="small" style="color:var(--leaf);font-weight:600;margin-top:6px">Bạn đã đánh giá sản phẩm này</div>
+                                }
+                            </div>
+                            <span class="num">@Display.Money(i.LineTotal)</span>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+
+        <aside class="stack" style="--stack:20px">
+            <section class="panel">
+                <h3>Tổng tiền</h3>
+                <div class="summary">
+                    <div><span>Tạm tính</span><span>@Display.Money(Model.SubtotalAmount)</span></div>
+                    <div><span>Giảm giá@(Model.VoucherCode is null ? "" : $" ({Model.VoucherCode})")</span><span>@(Model.DiscountAmount > 0 ? "−" + Display.Money(Model.DiscountAmount) : "0đ")</span></div>
+                    <div><span>Phí giao hàng</span><span>@Display.Money(Model.ShippingFee)</span></div>
+                    <div class="total"><span>Tổng cộng</span><span>@Display.Money(Model.TotalAmount)</span></div>
+                </div>
+                <p class="small" style="margin:12px 0 0">@Display.Label(Model.PaymentMethod)@(Model.PaidAt is null ? "" : $", đã thanh toán lúc {Display.DateTime(Model.PaidAt)}").</p>
+            </section>
+
+            <section class="panel">
+                <h3>Giao đến</h3>
+                <p style="margin:0"><strong>@Model.ReceiverName</strong> <span class="num">@Model.ReceiverPhone</span><br />@Model.ShippingAddress</p>
+                @if (!string.IsNullOrEmpty(Model.CustomerNote)) { <p class="small muted" style="margin:10px 0 0">Ghi chú: @Model.CustomerNote</p> }
+            </section>
+
+            @if (Model.CanCancel)
+            {
+                <section class="panel">
+                    <details>
+                        <summary class="linkbtn linkbtn--danger">Hủy đơn hàng</summary>
+                        <form method="post" action="/orders/@Model.Id/cancel" asp-antiforgery="true" class="stack" style="--stack:10px;margin-top:12px">
+                            <div class="field">
+                                <label for="reason">Lý do hủy</label>
+                                <select id="reason" name="reason" required>
+                                    <option value="">Chọn lý do</option>
+                                    <option>Muốn đổi size hoặc màu</option>
+                                    <option>Muốn đổi địa chỉ nhận hàng</option>
+                                    <option>Đặt nhầm sản phẩm</option>
+                                    <option>Không còn nhu cầu</option>
+                                    <option>Lý do khác</option>
+                                </select>
+                            </div>
+                            @if (Model.PaymentStatus == PaymentStatus.Paid) { <p class="small muted" style="margin:0">Đơn đã thanh toán, cửa hàng sẽ hoàn tiền cho bạn sau khi hủy.</p> }
+                            <button class="btn btn--danger btn--small" type="submit">Xác nhận hủy đơn</button>
+                        </form>
+                    </details>
+                </section>
+            }
+        </aside>
+    </div>
+</div>

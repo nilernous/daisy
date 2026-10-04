@@ -1,0 +1,68 @@
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var isAdmin = User.IsInRole("Admin");
+    string? Current(string name) => string.Equals(controller, name, StringComparison.OrdinalIgnoreCase) ? "page" : null;
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>@(ViewData["Title"] is string title ? $"{title} – Quản trị Daisy" : "Quản trị Daisy")</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" />
+    <link rel="icon" href="~/favicon.svg" type="image/svg+xml" />
+</head>
+<body>
+    <div class="admin">
+        <aside class="admin__side">
+            <a class="brand" href="/admin"><partial name="_DaisyMark" />daisy</a>
+            <nav aria-label="Quản trị">
+                @if (isAdmin)
+                {
+                    <a href="/admin" aria-current="@Current("Dashboard")">Tổng quan</a>
+                }
+                <h4>Bán hàng</h4>
+                <a href="/admin/orders" aria-current="@Current("Orders")">Đơn hàng</a>
+                <a href="/admin/payments" aria-current="@Current("Payments")">Đối soát chuyển khoản</a>
+                @if (isAdmin)
+                {
+                    <a href="/admin/vouchers" aria-current="@Current("Vouchers")">Mã giảm giá</a>
+                }
+                <h4>Hàng hóa</h4>
+                <a href="/admin/products" aria-current="@Current("Products")">Sản phẩm</a>
+                <a href="/admin/categories" aria-current="@Current("Categories")">Danh mục</a>
+                <a href="/admin/inventory" aria-current="@Current("Inventory")">Sắp hết hàng</a>
+                <h4>Khách hàng</h4>
+                <a href="/admin/reviews" aria-current="@Current("Reviews")">Đánh giá</a>
+                @if (isAdmin)
+                {
+                    <a href="/admin/users" aria-current="@Current("Users")">Người dùng</a>
+                }
+            </nav>
+            <div class="admin__foot">
+                <div><strong>@User.Identity?.Name</strong></div>
+                <div>@(isAdmin ? "Quản trị" : "Nhân viên")</div>
+                <div style="margin-top:8px"><a href="/">Xem cửa hàng</a></div>
+                <div><a href="/account/change-password">Đổi mật khẩu</a></div>
+                <form method="post" action="/account/logout" asp-antiforgery="true" style="margin-top:8px">
+                    <button class="linkbtn" type="submit" style="color:inherit">Đăng xuất</button>
+                </form>
+            </div>
+        </aside>
+        <main class="admin__main">
+            <partial name="_Flash" />
+            <div style="height:12px"></div>
+            @RenderBody()
+        </main>
+    </div>
+    <div class="tooltip" role="tooltip" hidden data-tooltip></div>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/admin.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

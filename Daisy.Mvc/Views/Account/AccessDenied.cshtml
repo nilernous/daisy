@@ -1,0 +1,20 @@
+<div class="wrap page">
+    <div class="empty">
+        <h2>Bạn không có quyền xem trang này</h2>
+        @if (User.IsStaffOrAdmin())
+        {
+            <p>Tài khoản nhân viên không dùng để mua hàng, và một số mục quản trị chỉ dành cho Quản trị viên.</p>
+            <a class="btn" href="/admin">Về trang quản trị</a>
+        }
+        else if (User.Identity?.IsAuthenticated == true)
+        {
+            <p>Trang này dành cho nhân viên cửa hàng.</p>
+            <a class="btn" href="/">Về trang chủ</a>
+        }
+        else
+        {
+            <p>Hãy đăng nhập để tiếp tục.</p>
+            <a class="btn" href="/account/login">Đăng nhập</a>
+        }
+    </div>
+</div>

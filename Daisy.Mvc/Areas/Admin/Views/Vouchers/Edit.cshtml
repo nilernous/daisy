@@ -1,0 +1,73 @@
+@model VoucherEditViewModel
+@{
+    var used = Model.Voucher?.UsedCount ?? 0;
+}
+
+<div class="admin__head">
+    <div>
+        <div class="crumbs"><a href="/admin/vouchers">Mã giảm giá</a> / @(Model.Voucher?.Code ?? "Tạo mới")</div>
+        <h1>@(Model.Id is null ? "Tạo mã giảm giá" : $"Sửa {Model.Voucher!.Code}")</h1>
+        @if (used > 0) { <p class="muted" style="margin:0">Đã dùng @used lần, nên không đổi được mã và loại giảm giá.</p> }
+    </div>
+</div>
+
+<section class="panel" style="max-width:760px">
+    <form method="post" action="@(Model.Id is null ? "/admin/vouchers/create" : $"/admin/vouchers/edit/{Model.Id}")" asp-antiforgery="true" class="stack" style="--stack:14px" novalidate>
+        <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+        <div class="form-grid">
+            <div class="field">
+                <label asp-for="Form.Code">Mã</label>
+                <input asp-for="Form.Code" style="text-transform:uppercase" readonly="@(used > 0)" />
+                <span asp-validation-for="Form.Code" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Form.Name">Tên chương trình</label>
+                <input asp-for="Form.Name" />
+                <span asp-validation-for="Form.Name" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Form.DiscountType">Loại giảm</label>
+                <select asp-for="Form.DiscountType" disabled="@(used > 0)">
+                    <option value="Percent">Theo phần trăm</option>
+                    <option value="Fixed">Số tiền cố định</option>
+                </select>
+                @if (used > 0) { <input type="hidden" name="Form.DiscountType" value="@Model.Form.DiscountType" /> }
+            </div>
+            <div class="field">
+                <label asp-for="Form.DiscountValue">Mức giảm (% hoặc đ)</label>
+                <input asp-for="Form.DiscountValue" type="number" min="0" step="any" />
+                <span asp-validation-for="Form.DiscountValue" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Form.MaxDiscountAmount">Giảm tối đa (đ)</label>
+                <input asp-for="Form.MaxDiscountAmount" type="number" min="0" step="1000" />
+                <span class="hint">Chỉ áp dụng khi giảm theo phần trăm. Bỏ trống nếu không giới hạn.</span>
+            </div>
+            <div class="field">
+                <label asp-for="Form.MinOrderAmount">Đơn tối thiểu (đ)</label>
+                <input asp-for="Form.MinOrderAmount" type="number" min="0" step="1000" />
+            </div>
+            <div class="field">
+                <label asp-for="Form.UsageLimit">Giới hạn lượt dùng</label>
+                <input asp-for="Form.UsageLimit" type="number" min="1" />
+                <span class="hint">Bỏ trống nếu không giới hạn.@(used > 0 ? $" Không thấp hơn {used}." : "")</span>
+                <span asp-validation-for="Form.UsageLimit" class="field-error"></span>
+            </div>
+            <label class="check" style="align-self:end"><input asp-for="Form.IsActive" /> Đang bật</label>
+            <div class="field">
+                <label asp-for="Form.StartAt">Bắt đầu</label>
+                <input asp-for="Form.StartAt" type="datetime-local" value="@Model.Form.StartAt?.ToString("yyyy-MM-dd'T'HH:mm")" />
+                <span asp-validation-for="Form.StartAt" class="field-error"></span>
+            </div>
+            <div class="field">
+                <label asp-for="Form.EndAt">Kết thúc</label>
+                <input asp-for="Form.EndAt" type="datetime-local" value="@Model.Form.EndAt?.ToString("yyyy-MM-dd'T'HH:mm")" />
+                <span asp-validation-for="Form.EndAt" class="field-error"></span>
+            </div>
+        </div>
+        <div class="row">
+            <button class="btn" type="submit">@(Model.Id is null ? "Tạo mã" : "Lưu")</button>
+            <a class="btn btn--ghost" href="/admin/vouchers">Hủy</a>
+        </div>
+    </form>
+</section>
