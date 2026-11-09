@@ -14,7 +14,8 @@ public sealed class DashboardController(AdminApiService admin) : AdminController
     {
         if (!IsAdmin)
         {
-            return RedirectToAction("Index", "Orders");
+            // The storefront also has an OrdersController, so the area must be named.
+            return RedirectToAction("Index", "Orders", new { area = "Admin" });
         }
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
