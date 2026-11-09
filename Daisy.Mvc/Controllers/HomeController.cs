@@ -24,10 +24,14 @@ public sealed class HomeController(ProductApiService products) : WebController
         return View(new HomeViewModel(sale, endsAt, featured, newest, best, categories));
     }
 
-    [HttpGet("home/status/{code:int}")]
+    // Re-executed by UseStatusCodePagesWithReExecute / UseExceptionHandler with the original method,
+    // so a failed POST (e.g. an expired antiforgery token) must reach these too instead of ending in 405.
+    [Route("home/status/{code:int}")]
+    [IgnoreAntiforgeryToken]
     public IActionResult Status(int code) =>
         code == 404 ? View("NotFound") : View("Error");
 
-    [HttpGet("home/error")]
+    [Route("home/error")]
+    [IgnoreAntiforgeryToken]
     public IActionResult Error() => View("Error");
 }
