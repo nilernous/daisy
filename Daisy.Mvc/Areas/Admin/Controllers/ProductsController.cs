@@ -149,7 +149,10 @@ public sealed class ProductsController(AdminApiService admin) : AdminController
 
     [HttpPost]
     public Task<IActionResult> ImageVariant(int id, int imageId, int? variantId) =>
-        RunAsync(() => admin.SetImageVariantAsync(imageId, variantId), "Đã gắn ảnh với biến thể.", $"/admin/products/edit/{id}#images");
+        RunAsync(
+            () => admin.SetImageVariantAsync(imageId, variantId),
+            variantId is null ? "Đã bỏ gắn ảnh khỏi biến thể." : "Đã gắn ảnh với biến thể.",
+            $"/admin/products/edit/{id}#images");
 
     [HttpPost]
     public Task<IActionResult> DeleteImage(int id, int imageId) =>
